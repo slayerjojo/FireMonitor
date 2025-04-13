@@ -6,5 +6,6 @@
 void relay_init(void);
 void relay_update(void);
 void relay_frame_set(uint8_t v);
+void relay_safe_set(uint8_t v);
 
 #endif

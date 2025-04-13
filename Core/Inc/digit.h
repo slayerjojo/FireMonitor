@@ -3,6 +3,6 @@
 
 #include "main.h"
 
-void digit_set(uint8_t *codes);
+void digit_set(const char *codes);
 
 #endif

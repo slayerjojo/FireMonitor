@@ -1,26 +1,9 @@
 #include "key.h"
+#include "digit.h"
 #include "main.h"
 #include "timer.h"
-
-enum {
-    KEY_UP = 0,
-    KEY_DOWN,
-    KEY_LEFT,
-    KEY_RIGHT,
-    MAX_KEY,
-};
-
-enum {
-    KEY_EVENT_CLICK = 0,
-    KEY_EVENT_PRESS,
-    KEY_EVENT_RELEASE,
-};
-
-enum {
-    MENU_IDLE = 0,
-    MENU_COMM,
-    MENU_MAIN_COMM,
-}_menu = MENU_IDLE;
+#include "usart.h"
+#include "function_set.h"
 
 struct {
     uint8_t cnt;
@@ -50,27 +33,17 @@ struct {
 };
 
 static uint32_t _timer_key = 1;
-
-static void key_event(uint8_t key, uint8_t action)
-{
-    if (MENU_IDLE == _menu)
-    {
-        if (KEY_LEFT == key && action == KEY_EVENT_PRESS)
-        {
-            _menu = MENU_COMM;
-        }
-    }
-    else if (MENU_COMM == _menu)
-    {
-        if (KEY_RIGHT == key)
-        {
-            _menu = MENU_MAIN_COMM;
-        }
-    }
-}
+static KEY_HANDLER _handler = 0;
 
 void key_init(void)
 {
+    _handler = 0;
+    digit_set("888");
+}
+
+void key_handler_set(KEY_HANDLER handler)
+{
+    _handler = handler;
 }
 
 void key_update(void)
@@ -90,18 +63,24 @@ void key_update(void)
                 else if (100 == _keys[key].cnt)
                 {
                     _keys[key].cnt++;
-                    key_event(key, KEY_EVENT_PRESS);
+                    SEGGER_RTT_printf(0, "key %u press\n", key);
+                    if (_handler)
+                        _handler(key, KEY_EVENT_PRESS);
                 }
             }
-            else if (_keys[key].cnt < 100)
+            else if (_keys[key].cnt && _keys[key].cnt < 100)
             {
                 _keys[key].cnt = 0;
-                key_event(key, KEY_EVENT_CLICK);
+                SEGGER_RTT_printf(0, "key %u click\n", key);
+                if (_handler)
+                    _handler(key, KEY_EVENT_CLICK);
             }
             else if (_keys[key].cnt >= 100)
             {
                 _keys[key].cnt = 0;
-                key_event(key, KEY_EVENT_RELEASE);
+                SEGGER_RTT_printf(0, "key %u release\n", key);
+                if (_handler)
+                    _handler(key, KEY_EVENT_RELEASE);
             }
         }
     }

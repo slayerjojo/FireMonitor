@@ -28,7 +28,10 @@
 #include "key.h"
 #include "digit.h"
 #include "led.h"
+#include "menu.h"
 #include "usart.h"
+#include "eeprom.h"
+#include "flash.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -100,6 +103,8 @@ int main(void)
 
   /* USER CODE BEGIN Init */
 
+  SEGGER_RTT_Init();
+  SEGGER_RTT_printf(0, "initialize...\n");
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -121,12 +126,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   relay_init();
-  tempareture_init();
+  //tempareture_init();
   output_4_20ma_init();
   function_set_init();
   key_init();
   led_init();
+  //menu_init();
   usart_init();
+  flash_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -135,12 +142,13 @@ int main(void)
   {
       HAL_GPIO_WritePin(WATCHDOG_GPIO_Port, WATCHDOG_Pin, GPIO_PIN_RESET);
       relay_update();
-      tempareture_update();
+      //tempareture_update();
       output_4_20ma_update();
       HAL_GPIO_WritePin(WATCHDOG_GPIO_Port, WATCHDOG_Pin, GPIO_PIN_SET);
       function_set_update();
       key_update();
       led_update();
+      //menu_update();
       usart_update();
     /* USER CODE END WHILE */
 
@@ -299,7 +307,7 @@ static void MX_I2C2_Init(void)
   hi2c2.Init.ClockSpeed = 100000;
   hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_10BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c2.Init.OwnAddress2 = 0;
   hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
@@ -336,7 +344,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
   hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
@@ -374,7 +382,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
   hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
@@ -399,6 +407,7 @@ static void MX_USART1_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART1_Init 0 */
+  uint32_t baud = 115200;
 
   /* USER CODE END USART1_Init 0 */
 
@@ -411,7 +420,7 @@ static void MX_USART1_UART_Init(void)
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
   huart1.Init.Mode = UART_MODE_TX_RX;
-  huart1.Init.HwFlowCtl = UART_HWCONTROL_RTS;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart1) != HAL_OK)
   {
@@ -454,27 +463,46 @@ static void MX_GPIO_Init(void)
 /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
-  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, WATCHDOG_Pin|LED_SEG1_Pin|LED_SEG2_Pin|LED_SEG3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, WATCHDOG_Pin|LED2_R_Pin|LED2_G_Pin|LED_SEGA_Pin
+                          |LED_SEGB_Pin|LED_SEGC_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, RELAY_FRAME_Pin|RELAY_SAFE_Pin|LED1_R_Pin|LED1_G_Pin
-                          |LED2_R_Pin|LED2_G_Pin|LED_SEGA_Pin|LED_SEGB_Pin
-                          |LED_SEGC_Pin|LED_SEGD_Pin|LED_SEGE_Pin|LED_SEGF_Pin
-                          |LED_SEGG_Pin|LED_SEGDP_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, FLASH_CS_Pin|MODBUS_PV_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(MODBUS_PV_GPIO_Port, MODBUS_PV_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(EEPROM_WP_GPIO_Port, EEPROM_WP_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(EEPROM_WP_GPIO_Port, EEPROM_WP_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(DAC_CS_GPIO_Port, DAC_CS_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, RELAY_SAFE_Pin|RELAY_FRAME_Pin|LED1_R_Pin|LED1_G_Pin
+                          |LED_SEGD_Pin|LED_SEGE_Pin|LED_SEGF_Pin|LED_SEGG_Pin
+                          |LED_SEGDP_Pin|LED_SEL1_Pin|LED_SEL2_Pin|LED_SEL3_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : WATCHDOG_Pin LED2_R_Pin LED2_G_Pin LED_SEGA_Pin
+                           LED_SEGB_Pin LED_SEGC_Pin */
+  GPIO_InitStruct.Pin = WATCHDOG_Pin|LED2_R_Pin|LED2_G_Pin|LED_SEGA_Pin
+                          |LED_SEGB_Pin|LED_SEGC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : FLASH_CS_Pin MODBUS_PV_Pin */
+  GPIO_InitStruct.Pin = FLASH_CS_Pin|MODBUS_PV_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : KEY_UP_Pin KEY_LEFT_Pin KEY_DOWN_Pin KEY_RIGHT_Pin */
   GPIO_InitStruct.Pin = KEY_UP_Pin|KEY_LEFT_Pin|KEY_DOWN_Pin|KEY_RIGHT_Pin;
@@ -482,45 +510,42 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : WATCHDOG_Pin LED_SEG1_Pin LED_SEG2_Pin LED_SEG3_Pin */
-  GPIO_InitStruct.Pin = WATCHDOG_Pin|LED_SEG1_Pin|LED_SEG2_Pin|LED_SEG3_Pin;
+  /*Configure GPIO pin : EEPROM_WP_Pin */
+  GPIO_InitStruct.Pin = EEPROM_WP_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(EEPROM_WP_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DAC_CS_Pin */
+  GPIO_InitStruct.Pin = DAC_CS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  HAL_GPIO_Init(DAC_CS_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : RELAY_FRAME_Pin RELAY_SAFE_Pin LED1_R_Pin LED1_G_Pin
-                           LED2_R_Pin LED2_G_Pin LED_SEGA_Pin LED_SEGB_Pin
-                           LED_SEGC_Pin LED_SEGD_Pin LED_SEGE_Pin LED_SEGF_Pin
-                           LED_SEGG_Pin LED_SEGDP_Pin */
-  GPIO_InitStruct.Pin = RELAY_FRAME_Pin|RELAY_SAFE_Pin|LED1_R_Pin|LED1_G_Pin
-                          |LED2_R_Pin|LED2_G_Pin|LED_SEGA_Pin|LED_SEGB_Pin
-                          |LED_SEGC_Pin|LED_SEGD_Pin|LED_SEGE_Pin|LED_SEGF_Pin
-                          |LED_SEGG_Pin|LED_SEGDP_Pin;
+  /*Configure GPIO pins : DI2_Pin DI1_Pin */
+  GPIO_InitStruct.Pin = DI2_Pin|DI1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : RELAY_SAFE_Pin RELAY_FRAME_Pin LED1_R_Pin LED1_G_Pin
+                           LED_SEGD_Pin LED_SEGE_Pin LED_SEGF_Pin LED_SEGG_Pin
+                           LED_SEGDP_Pin LED_SEL1_Pin LED_SEL2_Pin LED_SEL3_Pin */
+  GPIO_InitStruct.Pin = RELAY_SAFE_Pin|RELAY_FRAME_Pin|LED1_R_Pin|LED1_G_Pin
+                          |LED_SEGD_Pin|LED_SEGE_Pin|LED_SEGF_Pin|LED_SEGG_Pin
+                          |LED_SEGDP_Pin|LED_SEL1_Pin|LED_SEL2_Pin|LED_SEL3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : RELAY_FRAME_FB_Pin RELAY_SAFE_FB_Pin DL1_Pin DL2_Pin */
-  GPIO_InitStruct.Pin = RELAY_FRAME_FB_Pin|RELAY_SAFE_FB_Pin|DL1_Pin|DL2_Pin;
+  /*Configure GPIO pins : RELAY_FRAME_FB_Pin RELAY_SAFE_FB_Pin */
+  GPIO_InitStruct.Pin = RELAY_FRAME_FB_Pin|RELAY_SAFE_FB_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : MODBUS_PV_Pin */
-  GPIO_InitStruct.Pin = MODBUS_PV_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MODBUS_PV_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : EEPROM_WP_Pin */
-  GPIO_InitStruct.Pin = EEPROM_WP_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(EEPROM_WP_GPIO_Port, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

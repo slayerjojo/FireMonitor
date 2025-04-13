@@ -18,30 +18,38 @@ static struct {
 
 void relay_init(void)
 {
+    SEGGER_RTT_printf(0, "relay initialized\n");
 }
 
 void relay_update(void)
 {
     if (timer_diff(_frame_pickup.action) > _frame_pickup.delay)
     {
+        SEGGER_RTT_printf(0, "frame pickup action\n");
+
         _frame_pickup.action = 0;
         HAL_GPIO_WritePin(RELAY_FRAME_GPIO_Port, RELAY_FRAME_Pin, GPIO_PIN_SET);
         _frame_pickup.feedback = timer_start();
     }
     if (timer_diff(_frame_pickup.feedback) > 100)
     {
+        SEGGER_RTT_printf(0, "frame pickup feedback\n");
         _frame_pickup.feedback = 0;
         if (GPIO_PIN_SET != HAL_GPIO_ReadPin(RELAY_FRAME_FB_GPIO_Port, RELAY_FRAME_FB_Pin))
             error_set(ERROR_RELAY_FRAME_PICKUP);
     }
     if (timer_diff(_frame_dropout.action) > _frame_dropout.delay)
     {
+        SEGGER_RTT_printf(0, "frame dropout action\n");
+
         _frame_dropout.action = 0;
         HAL_GPIO_WritePin(RELAY_FRAME_GPIO_Port, RELAY_FRAME_Pin, GPIO_PIN_RESET);
         _frame_dropout.feedback = timer_start();
     }
     if (timer_diff(_frame_dropout.feedback) > 100)
     {
+        SEGGER_RTT_printf(0, "frame dropout feedback\n");
+
         _frame_dropout.feedback = 0;
         if (GPIO_PIN_RESET != HAL_GPIO_ReadPin(RELAY_FRAME_FB_GPIO_Port, RELAY_FRAME_FB_Pin))
             error_set(ERROR_RELAY_FRAME_DROPOUT);
@@ -108,6 +116,7 @@ void relay_frame_dropout_add(int delay)
 
 void relay_safe_set(uint8_t v)
 {
+    SEGGER_RTT_printf(0, "relay safe set:%u\n", v);
     if (v)
     {
         HAL_GPIO_WritePin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin, GPIO_PIN_SET);
