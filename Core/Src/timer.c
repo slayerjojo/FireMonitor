@@ -18,3 +18,12 @@ uint32_t timer_diff(uint32_t t)
         return now - t;
     return ((uint32_t)-1) - t + now;
 }
+
+void timer_delay(uint32_t us)
+{
+    us *= 100;
+    while (us--)
+    {
+        __NOP();
+    }
+}

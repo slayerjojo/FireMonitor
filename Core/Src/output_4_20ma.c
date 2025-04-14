@@ -1,5 +1,6 @@
 #include "output_4_20ma.h"
 #include "main.h"
+#include "timer.h"
 
 extern SPI_HandleTypeDef hspi2;
 
@@ -15,6 +16,7 @@ static void output(uint16_t v)
     data[1] = _output;
     HAL_GPIO_WritePin(DAC_CS_GPIO_Port, DAC_CS_Pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(&hspi2, data, 2, 1000);
+    timer_delay(10);
     HAL_GPIO_WritePin(DAC_CS_GPIO_Port, DAC_CS_Pin, GPIO_PIN_SET);
     
     SEGGER_RTT_printf(0, "4-20ma output:%u\n", v);
