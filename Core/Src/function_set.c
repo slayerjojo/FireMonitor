@@ -4,7 +4,6 @@
 
 void function_set_init(void)
 {
-    function_set_get();
 }
 
 void function_set_update(void)
@@ -15,9 +14,6 @@ uint8_t function_set_get(void)
 {
     uint8_t di1 = !!HAL_GPIO_ReadPin(DI1_GPIO_Port, DI1_Pin);
     uint8_t di2 = !!HAL_GPIO_ReadPin(DI2_GPIO_Port, DI2_Pin);
-
-    led_set(LED_1_RED, di1 ? 0xffff : 0x0000, 0xffff);
-    led_set(LED_2_RED, di2 ? 0xffff : 0x0000, 0xffff);
 
     SEGGER_RTT_printf(0, "function_set %u %u\n", di1, di2);
     return (di2 << 1) + di1;

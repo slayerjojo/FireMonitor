@@ -116,6 +116,8 @@ void Error_Handler(void);
 #define MODBUS_RX_GPIO_Port GPIOA
 #define MODBUS_PV_Pin GPIO_PIN_11
 #define MODBUS_PV_GPIO_Port GPIOA
+#define MODBUS_DE_Pin GPIO_PIN_12
+#define MODBUS_DE_GPIO_Port GPIOA
 #define LED_SEGA_Pin GPIO_PIN_10
 #define LED_SEGA_GPIO_Port GPIOC
 #define LED_SEGB_Pin GPIO_PIN_11

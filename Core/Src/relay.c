@@ -16,6 +16,11 @@ static struct {
     .delay = 2000,
 };
 
+static struct {
+    uint32_t feedback;
+    uint8_t v;
+}_safe = {0};
+
 void relay_init(void)
 {
     SEGGER_RTT_printf(0, "relay initialized\n");
@@ -53,6 +58,14 @@ void relay_update(void)
         _frame_dropout.feedback = 0;
         if (GPIO_PIN_RESET != HAL_GPIO_ReadPin(RELAY_FRAME_FB_GPIO_Port, RELAY_FRAME_FB_Pin))
             error_set(ERROR_RELAY_FRAME_DROPOUT);
+    }
+    if (timer_diff(_safe.feedback) > 100)
+    {
+        SEGGER_RTT_printf(0, "safe feedback\n");
+
+        _safe.feedback = 0;
+        if (_safe.v != HAL_GPIO_ReadPin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin))
+            error_set(ERROR_RELAY_SAFE);
     }
 }
 
@@ -119,10 +132,12 @@ void relay_safe_set(uint8_t v)
     SEGGER_RTT_printf(0, "relay safe set:%u\n", v);
     if (v)
     {
-        HAL_GPIO_WritePin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin, GPIO_PIN_SET);
+        _safe.v = GPIO_PIN_SET;
     }
     else
     {
-        HAL_GPIO_WritePin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin, GPIO_PIN_RESET);
+        _safe.v = GPIO_PIN_RESET;
     }
+    HAL_GPIO_WritePin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin, _safe.v);
+    _safe.feedback = timer_start();
 }

@@ -44,6 +44,7 @@ static uint32_t _timer = 1;
 void led_init(void)
 {
     SEGGER_RTT_printf(0, "led initialized\n");
+
     for (uint8_t led = 0; led < MAX_LED; led++)
     {
         HAL_GPIO_WritePin(_leds[led].gpio, _leds[led].pin, GPIO_PIN_SET);

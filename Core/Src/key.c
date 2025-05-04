@@ -38,7 +38,6 @@ static KEY_HANDLER _handler = 0;
 void key_init(void)
 {
     _handler = 0;
-    digit_set("888");
 }
 
 void key_handler_set(KEY_HANDLER handler)

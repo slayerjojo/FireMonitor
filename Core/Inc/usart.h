@@ -10,6 +10,7 @@ enum {
 
 void usart_init(void);
 void usart_update(void);
+void usart_send(uint8_t *buffer, uint16_t size);
 uint8_t usart_comm_protocol(void);
 uint8_t usart_comm_device_address(uint8_t address);
 uint8_t usart_comm_baud(void);
