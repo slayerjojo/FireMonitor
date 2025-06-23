@@ -80,10 +80,6 @@ void Error_Handler(void);
 #define KEY_RIGHT_GPIO_Port GPIOE
 #define EEPROM_WP_Pin GPIO_PIN_15
 #define EEPROM_WP_GPIO_Port GPIOE
-#define EEPROM_SCL_Pin GPIO_PIN_10
-#define EEPROM_SCL_GPIO_Port GPIOB
-#define EEPROM_SDA_Pin GPIO_PIN_11
-#define EEPROM_SDA_GPIO_Port GPIOB
 #define DAC_CS_Pin GPIO_PIN_12
 #define DAC_CS_GPIO_Port GPIOB
 #define DAC_SCK_Pin GPIO_PIN_13
@@ -96,8 +92,8 @@ void Error_Handler(void);
 #define DI1_GPIO_Port GPIOD
 #define RELAY_SAFE_Pin GPIO_PIN_12
 #define RELAY_SAFE_GPIO_Port GPIOD
-#define RELAY_FRAME_Pin GPIO_PIN_13
-#define RELAY_FRAME_GPIO_Port GPIOD
+#define RELAY_FLAME_Pin GPIO_PIN_13
+#define RELAY_FLAME_GPIO_Port GPIOD
 #define LED1_R_Pin GPIO_PIN_14
 #define LED1_R_GPIO_Port GPIOD
 #define LED1_G_Pin GPIO_PIN_15
@@ -106,18 +102,20 @@ void Error_Handler(void);
 #define LED2_R_GPIO_Port GPIOC
 #define LED2_G_Pin GPIO_PIN_7
 #define LED2_G_GPIO_Port GPIOC
-#define RELAY_FRAME_FB_Pin GPIO_PIN_8
-#define RELAY_FRAME_FB_GPIO_Port GPIOC
+#define RELAY_FLAME_FB_Pin GPIO_PIN_8
+#define RELAY_FLAME_FB_GPIO_Port GPIOC
 #define RELAY_SAFE_FB_Pin GPIO_PIN_9
 #define RELAY_SAFE_FB_GPIO_Port GPIOC
+#define MODBUS_PV_Pin GPIO_PIN_8
+#define MODBUS_PV_GPIO_Port GPIOA
 #define MODBUS_TX_Pin GPIO_PIN_9
 #define MODBUS_TX_GPIO_Port GPIOA
 #define MODBUS_RX_Pin GPIO_PIN_10
 #define MODBUS_RX_GPIO_Port GPIOA
-#define MODBUS_PV_Pin GPIO_PIN_11
-#define MODBUS_PV_GPIO_Port GPIOA
-#define MODBUS_DE_Pin GPIO_PIN_12
+#define MODBUS_DE_Pin GPIO_PIN_11
 #define MODBUS_DE_GPIO_Port GPIOA
+#define MODBUS_RTS_Pin GPIO_PIN_12
+#define MODBUS_RTS_GPIO_Port GPIOA
 #define LED_SEGA_Pin GPIO_PIN_10
 #define LED_SEGA_GPIO_Port GPIOC
 #define LED_SEGB_Pin GPIO_PIN_11
@@ -146,7 +144,9 @@ void Error_Handler(void);
 #define TEMP_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define FW_VERSION "B.1"
+#define FW_VERSION "C.1"
+#define MAX_SENSORS 1
+#define CORE_TEMPERATURE_THRESHOLD 800
 
 /* USER CODE END Private defines */
 

@@ -103,7 +103,7 @@ void digit_init(void)
 
 void digit_update(void)
 {
-    if (timer_diff(_timer) < 7)
+    if (timer_diff(_timer) < 5)
         return;
     _timer = timer_start();
 

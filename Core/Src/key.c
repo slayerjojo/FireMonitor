@@ -37,6 +37,7 @@ static KEY_HANDLER _handler = 0;
 
 void key_init(void)
 {
+    SEGGER_RTT_printf(0, "key initialized\n");
     _handler = 0;
 }
 
@@ -55,7 +56,13 @@ void key_update(void)
         {
             if (!HAL_GPIO_ReadPin(_keys[key].gpio, _keys[key].pin))
             {
-                if (_keys[key].cnt < 100)
+                if (_keys[key].cnt == 3)
+                {
+                    _keys[key].cnt++;
+                    if (_handler)
+                        _handler(key, KEY_EVENT_PRESS);
+                }
+                else if (_keys[key].cnt < 100)
                 {
                     _keys[key].cnt++;
                 }
@@ -64,15 +71,17 @@ void key_update(void)
                     _keys[key].cnt++;
                     SEGGER_RTT_printf(0, "key %u press\n", key);
                     if (_handler)
-                        _handler(key, KEY_EVENT_PRESS);
+                        _handler(key, KEY_EVENT_PRESS_LONG);
                 }
             }
             else if (_keys[key].cnt && _keys[key].cnt < 100)
             {
                 _keys[key].cnt = 0;
-                SEGGER_RTT_printf(0, "key %u click\n", key);
                 if (_handler)
+                {
+                    SEGGER_RTT_printf(0, "key %u click\n", key);
                     _handler(key, KEY_EVENT_CLICK);
+                }
             }
             else if (_keys[key].cnt >= 100)
             {

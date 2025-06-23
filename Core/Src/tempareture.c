@@ -6,7 +6,7 @@
 extern I2C_HandleTypeDef hi2c1;
 
 static uint32_t _timer = 1;
-static int16_t _max = 70;
+static int16_t _max = 85;
 static int16_t _min = -60;
 static int16_t _temp = 0;
 
@@ -40,19 +40,13 @@ void tempareture_update(void)
         //SEGGER_RTT_printf(0, "tempareture:%d\n", temp);
 
         if (temp >= _max * 2)
-            error_set(ERROR_TEMPERATURE_OVERFLOW);
+            error_set(ERROR_OVER_TEMPERATURE);
         if (temp <= _min * 2)
-            error_set(ERROR_TEMPERATURE_UNDERFLOW);
+            error_set(ERROR_OVER_TEMPERATURE);
     }
 }
 
-void tempareture_minmax_set(int16_t max, int16_t min)
+int16_t core_tempareture_get(void)
 {
-    _max = max;
-    _min = min;
-}
-
-int16_t tempareture_get(void)
-{
-    return _temp / 2;
+    return _temp * 10 / 2;
 }

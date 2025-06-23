@@ -23,7 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "relay.h"
 #include "tempareture.h"
-#include "output_4_20ma.h"
+#include "analog_output.h"
 #include "function_set.h"
 #include "key.h"
 #include "digit.h"
@@ -34,6 +34,7 @@
 #include "flash.h"
 #include "digit.h"
 #include "sensor.h"
+#include "self_test.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,13 +54,14 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
-DMA_HandleTypeDef hdma_adc1;
 
 I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
+
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart1;
 DMA_HandleTypeDef hdma_usart1_rx;
@@ -79,13 +81,14 @@ static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+extern uint32_t _baud;
 /* USER CODE END 0 */
 
 /**
@@ -108,6 +111,7 @@ int main(void)
 
   SEGGER_RTT_Init();
   SEGGER_RTT_printf(0, "initialize...\n");
+  
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -126,23 +130,21 @@ int main(void)
   MX_SPI1_Init();
   MX_SPI2_Init();
   MX_USART1_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
-
+  
+  flash_init();
   digit_init();
   sensor_init();
   relay_init();
-  //tempareture_init();
-  output_4_20ma_init();
+  tempareture_init();
+  analog_output_init();
   function_set_init();
   key_init();
   led_init();
-  //menu_init();
+  menu_init();
   usart_init();
-  flash_init();
-  led_set(LED_1_RED, 0xaa, 0);
-  led_set(LED_1_GREEN, 0x55, 0);
-  led_set(LED_2_RED, 0xaa, 0);
-  led_set(LED_2_GREEN, 0x55, 0);
+  self_test_init();
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -153,14 +155,15 @@ int main(void)
       digit_update();
       sensor_update();
       relay_update();
-      //tempareture_update();
-      output_4_20ma_update();
+      tempareture_update();
+      analog_output_update();
       HAL_GPIO_WritePin(WATCHDOG_GPIO_Port, WATCHDOG_Pin, GPIO_PIN_SET);
       function_set_update();
       key_update();
       led_update();
-      //menu_update();
+      menu_update();
       usart_update();
+      self_test_update();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -254,7 +257,7 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_11;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_480CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -318,7 +321,7 @@ static void MX_I2C2_Init(void)
   hi2c2.Init.ClockSpeed = 100000;
   hi2c2.Init.DutyCycle = I2C_DUTYCYCLE_2;
   hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_10BIT;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
   hi2c2.Init.OwnAddress2 = 0;
   hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
@@ -410,6 +413,51 @@ static void MX_SPI2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 168-1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1000-1;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -418,7 +466,6 @@ static void MX_USART1_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART1_Init 0 */
-  uint32_t baud = 38400;
 
   /* USER CODE END USART1_Init 0 */
 
@@ -426,10 +473,10 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = baud;
-  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.BaudRate = _baud;
+  huart1.Init.WordLength = UART_WORDLENGTH_9B;
   huart1.Init.StopBits = UART_STOPBITS_1;
-  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Parity = UART_PARITY_EVEN;
   huart1.Init.Mode = UART_MODE_TX_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -453,9 +500,6 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA2_CLK_ENABLE();
 
   /* DMA interrupt init */
-  /* DMA2_Stream0_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
   /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
@@ -489,7 +533,7 @@ static void MX_GPIO_Init(void)
                           |LED_SEGB_Pin|LED_SEGC_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, FLASH_CS_Pin|MODBUS_PV_Pin|MODBUS_DE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, FLASH_CS_Pin|MODBUS_PV_Pin|MODBUS_DE_Pin|MODBUS_RTS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(EEPROM_WP_GPIO_Port, EEPROM_WP_Pin, GPIO_PIN_SET);
@@ -498,7 +542,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(DAC_CS_GPIO_Port, DAC_CS_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, RELAY_SAFE_Pin|RELAY_FRAME_Pin|LED1_R_Pin|LED1_G_Pin
+  HAL_GPIO_WritePin(GPIOD, RELAY_SAFE_Pin|RELAY_FLAME_Pin|LED1_R_Pin|LED1_G_Pin
                           |LED_SEGD_Pin|LED_SEGE_Pin|LED_SEGF_Pin|LED_SEGG_Pin
                           |LED_SEGDP_Pin|LED_SEL1_Pin|LED_SEL2_Pin|LED_SEL3_Pin, GPIO_PIN_RESET);
 
@@ -511,8 +555,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : FLASH_CS_Pin MODBUS_PV_Pin */
-  GPIO_InitStruct.Pin = FLASH_CS_Pin|MODBUS_PV_Pin;
+  /*Configure GPIO pins : FLASH_CS_Pin MODBUS_RTS_Pin */
+  GPIO_InitStruct.Pin = FLASH_CS_Pin|MODBUS_RTS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -527,7 +571,7 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin : EEPROM_WP_Pin */
   GPIO_InitStruct.Pin = EEPROM_WP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(EEPROM_WP_GPIO_Port, &GPIO_InitStruct);
 
@@ -544,10 +588,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : RELAY_SAFE_Pin RELAY_FRAME_Pin LED1_R_Pin LED1_G_Pin
+  /*Configure GPIO pins : RELAY_SAFE_Pin RELAY_FLAME_Pin LED1_R_Pin LED1_G_Pin
                            LED_SEGD_Pin LED_SEGE_Pin LED_SEGF_Pin LED_SEGG_Pin
                            LED_SEGDP_Pin */
-  GPIO_InitStruct.Pin = RELAY_SAFE_Pin|RELAY_FRAME_Pin|LED1_R_Pin|LED1_G_Pin
+  GPIO_InitStruct.Pin = RELAY_SAFE_Pin|RELAY_FLAME_Pin|LED1_R_Pin|LED1_G_Pin
                           |LED_SEGD_Pin|LED_SEGE_Pin|LED_SEGF_Pin|LED_SEGG_Pin
                           |LED_SEGDP_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -555,18 +599,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : RELAY_FRAME_FB_Pin RELAY_SAFE_FB_Pin */
-  GPIO_InitStruct.Pin = RELAY_FRAME_FB_Pin|RELAY_SAFE_FB_Pin;
+  /*Configure GPIO pins : RELAY_FLAME_FB_Pin RELAY_SAFE_FB_Pin */
+  GPIO_InitStruct.Pin = RELAY_FLAME_FB_Pin|RELAY_SAFE_FB_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : MODBUS_DE_Pin */
-  GPIO_InitStruct.Pin = MODBUS_DE_Pin;
+  /*Configure GPIO pins : MODBUS_PV_Pin MODBUS_DE_Pin */
+  GPIO_InitStruct.Pin = MODBUS_PV_Pin|MODBUS_DE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(MODBUS_DE_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_SEL1_Pin LED_SEL2_Pin LED_SEL3_Pin */
   GPIO_InitStruct.Pin = LED_SEL1_Pin|LED_SEL2_Pin|LED_SEL3_Pin;

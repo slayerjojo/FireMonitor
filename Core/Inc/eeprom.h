@@ -3,7 +3,27 @@
 
 #include <stdint.h>
 
-void eeprom_write(uint16_t addr, const uint8_t *data, uint16_t size);
-void eeprom_read(uint16_t addr, uint8_t *data, uint16_t size);
+#define EEPROM_SETTINGS_AO_MODE 0
+#define EEPROM_SETTINGS_AO_SOURCE 1
+#define EEPROM_SETTINGS_FSA 2
+#define EEPROM_SETTINGS_FSB 102
+#define EEPROM_SETTINGS_FSC 202
+#define EEPROM_SETTINGS_FSD 302
+#define EEPROM_SETTINGS_FS_ACTIVE_AB 402
+#define EEPROM_SETTINGS_FS_ACTIVE_CD 403
+#define EEPROM_SETTINGS_FS_SWITCH 404
+#define EEPROM_SETTINGS_FS_ALTER_FLAME_LOGIC 405
+#define EEPROM_SETTINGS_FS_HIGH_LIMIT_ENABLE 406
+#define EEPROM_SETTINGS_FS_AC_AMPLITUDE_ENABLE 407
+#define EEPROM_SETTINGS_OM_MODE 408
+#define EEPROM_SETTINGS_RELAY_SAFE_USAGE 409
+#define EEPROM_SETTINGS_RELAY_SAFE_TEMPERATURE_THRESHOLD 410
+#define EEPROM_SETTINGS_RELAY_COUNT 412
+#define EEPROM_SETTINGS_RELAY_OVERRIDDEN 416
+#define EEPROM_SETTINGS_USART_BAUD 417
+#define EEPROM_SETTINGS_MODBUS_ADDR 421
+
+void eeprom_write(uint16_t addr, const void *data, uint16_t size);
+void eeprom_read(uint16_t addr, void *data, uint16_t size);
 
 #endif
