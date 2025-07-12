@@ -70,9 +70,30 @@ static uint8_t _di2 = 0;
 
 static uint32_t _save_timer = 0;
 
+static void function_set_info(struct function_set *f)
+{
+    SEGGER_RTT_printf(0, "intensity:\n");
+    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u)\n", f->intensity.trip.pull_in, f->intensity.trip.drop_out, f->intensity.trip.high);
+    SEGGER_RTT_printf(0, "\tnorm(value:%u high:%u)\n", f->intensity.normalization.value, f->intensity.normalization.high);
+    SEGGER_RTT_printf(0, "\tfilter:%u\n", f->intensity.filter);
+
+    SEGGER_RTT_printf(0, "frequency:\n");
+    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u)\n", f->frequency.trip.pull_in, f->frequency.trip.drop_out, f->frequency.trip.high);
+    SEGGER_RTT_printf(0, "\tnorm(value:%u high:%u)\n", f->frequency.normalization.value, f->frequency.normalization.high);
+    SEGGER_RTT_printf(0, "\tfilter:%u max:%u sensitivity:%u\n", f->frequency.filter, f->frequency.max, f->frequency.sensitivity);
+    
+    SEGGER_RTT_printf(0, "amplitude:\n");
+    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u)\n", f->amplitude.trip.pull_in, f->amplitude.trip.drop_out, f->amplitude.trip.high);
+    SEGGER_RTT_printf(0, "\tnorm(value:%u high:%u)\n", f->amplitude.normalization.value, f->amplitude.normalization.high);
+    SEGGER_RTT_printf(0, "\tfilter:%u\n", f->amplitude.filter);
+    
+    SEGGER_RTT_printf(0, "delay(pull:%u drop:%u)\n", f->delay.pull_in, f->delay.drop_out);
+    
+    SEGGER_RTT_printf(0, "quality(threshold:%u)\n", f->quality_threshold);
+}
+
 void function_set_init(void)
 {
-
     eeprom_read(EEPROM_SETTINGS_FSA, &_fsa, sizeof(_fsa));
     eeprom_read(EEPROM_SETTINGS_FSB, &_fsb, sizeof(_fsb));
     eeprom_read(EEPROM_SETTINGS_FSC, &_fsc, sizeof(_fsc));
@@ -95,6 +116,17 @@ void function_set_init(void)
         _alternative_flame_logic = 0;
         _high_limit_enable = 0;
         _ac_amplitude_enable = 0;
+
+        eeprom_write(EEPROM_SETTINGS_FSA, &_fsa, sizeof(_fsa));
+        eeprom_write(EEPROM_SETTINGS_FSB, &_fsb, sizeof(_fsb));
+        eeprom_write(EEPROM_SETTINGS_FSC, &_fsc, sizeof(_fsc));
+        eeprom_write(EEPROM_SETTINGS_FSD, &_fsd, sizeof(_fsd));
+        eeprom_write(EEPROM_SETTINGS_FS_SWITCH, &_switch, 1);
+        eeprom_write(EEPROM_SETTINGS_FS_ACTIVE_AB, &_active_ab, 1);
+        eeprom_write(EEPROM_SETTINGS_FS_ACTIVE_CD, &_active_cd, 1);
+        eeprom_write(EEPROM_SETTINGS_FS_ALTER_FLAME_LOGIC, &_alternative_flame_logic, 1);
+        eeprom_write(EEPROM_SETTINGS_FS_HIGH_LIMIT_ENABLE, &_high_limit_enable, 1);
+        eeprom_write(EEPROM_SETTINGS_FS_AC_AMPLITUDE_ENABLE, &_ac_amplitude_enable, 1);
     }
 
     memcpy(&_ta, &_fsa, sizeof(_ta));
@@ -106,6 +138,17 @@ void function_set_init(void)
     _ac_amplitude_enable_temp = _ac_amplitude_enable;
 
     SEGGER_RTT_printf(0, "active ab:%u/cd:%u\n", _active_ab, _active_cd);
+    SEGGER_RTT_printf(0, "fsa ");
+    function_set_info(&_fsa);
+    SEGGER_RTT_printf(0, "fsb ");
+    function_set_info(&_fsb);
+    SEGGER_RTT_printf(0, "fsc ");
+    function_set_info(&_fsc);
+    SEGGER_RTT_printf(0, "fsd ");
+    function_set_info(&_fsd);
+    SEGGER_RTT_printf(0, "switch:%u\n", _switch);
+    SEGGER_RTT_printf(0, "high limit:%u\n", _high_limit_enable);
+    SEGGER_RTT_printf(0, "ac amplitude:%u\n", _ac_amplitude_enable);
 }
 
 void function_set_update(void)

@@ -28,18 +28,34 @@ void relay_init(void)
     SEGGER_RTT_printf(0, "relay initialized\n");
 
     eeprom_read(EEPROM_SETTINGS_RELAY_OVERRIDDEN, &_flame_relay_overridden, 1);
-    eeprom_read(EEPROM_SETTINGS_RELAY_SAFE_USAGE, &_safe_relay_usage, 1);
-    eeprom_read(EEPROM_SETTINGS_RELAY_SAFE_TEMPERATURE_THRESHOLD, &_safe_relay_temperature_threshold, 2);
-    eeprom_read(EEPROM_SETTINGS_RELAY_COUNT, &_relay_status[0].count, 2);
-    eeprom_read(EEPROM_SETTINGS_RELAY_COUNT + 2, &_relay_status[1].count, 2);
     if (0xff == _flame_relay_overridden)
     {
         _flame_relay_overridden = 0;
+    }
+
+    eeprom_read(EEPROM_SETTINGS_RELAY_SAFE_USAGE, &_safe_relay_usage, 1);
+    if (0xff == _safe_relay_usage)
+    {
         _safe_relay_usage = SAFE_RELAY_USAGE_SAFE;
-        _safe_relay_temperature_threshold = 800;
-        _relay_status[0].count = _relay_status[1].count = 0;
     }
     _safe_relay_usage_temp = _safe_relay_usage;
+
+    eeprom_read(EEPROM_SETTINGS_RELAY_SAFE_TEMPERATURE_THRESHOLD, &_safe_relay_temperature_threshold, 2);
+    if (0xffff == _safe_relay_temperature_threshold)
+    {
+        _safe_relay_temperature_threshold = 800;
+    }
+
+    eeprom_read(EEPROM_SETTINGS_RELAY_COUNT, &_relay_status[0].count, 2);
+    if (0xffff == _relay_status[0].count)
+    {
+        _relay_status[0].count = 0;
+    }
+    eeprom_read(EEPROM_SETTINGS_RELAY_COUNT + 2, &_relay_status[1].count, 2);
+    if (0xffff == _relay_status[1].count)
+    {
+        _relay_status[1].count = 0;
+    }
 
     if (SAFE_RELAY_USAGE_SAFE == _safe_relay_usage)
     {
@@ -221,6 +237,7 @@ void flame_relay_set(uint8_t v)
     }
     if (v != _relay_status[0].status)
     {
+        SEGGER_RTT_printf(0, "flame_relay_set v:%u\n", v);
         _relay_status[0].timer = timer_start();
         _relay_status[0].count++;
     }
@@ -254,6 +271,7 @@ void safe_relay_set(uint8_t v)
     }
     if (v != _relay_status[1].status)
     {
+        SEGGER_RTT_printf(0, "safe_relay_set v:%u\n", v);
         _relay_status[1].timer = timer_start();
         _relay_status[1].count++;
     }

@@ -16,9 +16,9 @@ static uint8_t _temp[2] = {1, 1};
 static uint8_t _address[2] = {1, 1};
 static uint8_t _configure_count = 0;
 static uint8_t _autotuning = 0;
-static uint16_t _id[4 * 7] = {'U', '1', 0, 0, };
-static uint16_t _last_id[4 * 7] = {'U', '1', 0, 0};
-static uint16_t _unknown_register[] = {0};
+const uint16_t _default_id[4 * 7] = {'U', '1', 0, 0, 'B', '1', 0, 0, 'E', '1', 0, 0, 'F', 'S', 'A', 0, 'F', 'S', 'B', 0, 'F', 'S', 'C', 0, 'F', 'S', 'D', 0};
+static uint16_t _id[4 * 7] = {'U', '1', 0, 0, 'B', '1', 0, 0, 'E', '1', 0, 0, 'F', 'S', 'A', 0, 'F', 'S', 'B', 0, 'F', 'S', 'C', 0, 'F', 'S', 'D', 0};
+static uint16_t _last_id[4 * 7] = {'U', '1', 0, 0, 'B', '1', 0, 0, 'E', '1', 0, 0, 'F', 'S', 'A', 0, 'F', 'S', 'B', 0, 'F', 'S', 'C', 0, 'F', 'S', 'D', 0};
 static uint8_t _resp[3 + 125 * 2 + 2] = {0};
 
 struct modbus_register
@@ -58,18 +58,6 @@ struct modbus_register
         uint8_t relay;
     };
 };
-
-uint16_t modbus_register_reader_unknown(struct modbus_register *r, uint16_t reg)
-{
-    SEGGER_RTT_printf(1, "read unknown register:%u v:%u\n", reg, _unknown_register[r->unknown.offset]);
-    return _unknown_register[r->unknown.offset];
-}
-
-void modbus_register_writer_unknown(struct modbus_register *r, uint16_t reg, uint16_t v)
-{
-    SEGGER_RTT_printf(1, "writer unknown register:%u old:%u -> v:%u\n", reg, _unknown_register[r->unknown.offset], v);
-    _unknown_register[r->unknown.offset] = v;
-}
 
 uint16_t modbus_register_reader_flame_status(struct modbus_register *r, uint16_t reg)
 {
@@ -125,6 +113,12 @@ uint16_t modbus_register_reader_is_safe_relay_used_for_safe(struct modbus_regist
 void modbus_register_writer_clear_counters(struct modbus_register *r, uint16_t reg, uint16_t v)
 {
     relay_clear_counters();
+}
+
+uint16_t modbus_register_reader_serial_addr(struct modbus_register *r, uint16_t reg)
+{
+    uint16_t v = _address[reg - r->reg];
+    return v;
 }
 
 uint16_t modbus_register_reader_sensor_count(struct modbus_register *r, uint16_t reg)
@@ -201,6 +195,8 @@ void modbus_register_writer_id(struct modbus_register *r, uint16_t reg, uint16_t
 {
     _last_id[r->id.start + reg - r->reg] = _id[r->id.start + reg - r->reg];
     _id[r->id.start + reg - r->reg] = v;
+    eeprom_write(EEPROM_SETTINGS_MODBUS_ID + (r->id.start + reg - r->reg) * 2, &_id[r->id.start + reg - r->reg], sizeof(uint16_t));
+    eeprom_write(EEPROM_SETTINGS_MODBUS_LAST_ID + (r->id.start + reg - r->reg) * 2, &_last_id[r->id.start + reg - r->reg], sizeof(uint16_t));
 }
 
 uint16_t modbus_register_reader_last_id(struct modbus_register *r, uint16_t reg)
@@ -263,13 +259,9 @@ void modbus_register_writer_function_set_attribute(struct modbus_register *r, ui
     function_set_attribute_set(r->function_set.functor, reg - r->reg, v);
 }
 
-uint16_t modbus_register_reader_download(struct modbus_register *r, uint16_t reg)
-{
-    return 0;
-}
-
 void modbus_register_writer_download(struct modbus_register *r, uint16_t reg, uint16_t action)
 {
+    sensor_sample_pause(1 == action);
 }
 
 static uint16_t modbus_register_reader_combine(struct modbus_register *r, uint16_t reg);
@@ -311,27 +303,27 @@ uint16_t modbus_register_reader_sensor_type(struct modbus_register *r, uint16_t 
 
 uint16_t modbus_register_reader_temperature(struct modbus_register *r, uint16_t reg)
 {
-    return core_tempareture_get();
+    return core_tempareture_get() / 10;
 }
 
 uint16_t modbus_register_reader_fw_major(struct modbus_register *r, uint16_t reg)
 {
-    return 'C';
+    return FW_VERSION[0];
 }
 
 uint16_t modbus_register_reader_fw_minor(struct modbus_register *r, uint16_t reg)
 {
-    return '3';
+    return FW_VERSION[2];
 }
 
 uint16_t modbus_register_reader_FPGA_major(struct modbus_register *r, uint16_t reg)
 {
-    return 'B';
+    return 0x42;
 }
 
 uint16_t modbus_register_reader_FPGA_minor(struct modbus_register *r, uint16_t reg)
 {
-    return '1';
+    return 0x31;
 }
 
 uint16_t modbus_register_reader_sensor_intensity_raw_get(struct modbus_register *r, uint16_t reg)
@@ -342,6 +334,12 @@ uint16_t modbus_register_reader_sensor_intensity_raw_get(struct modbus_register 
 uint16_t modbus_register_reader_relay_action_count(struct modbus_register *r, uint16_t reg)
 {
     return relay_action_count(r->relay);
+}
+
+uint16_t modbus_register_reader_identify(struct modbus_register *r, uint16_t reg)
+{
+    uint16_t identify[2] = {0x4149, 0x4F4C};
+    return identify[reg - r->reg];
 }
 
 static struct modbus_register _registers[] = {
@@ -431,6 +429,19 @@ static struct modbus_register _registers[] = {
         .writer = modbus_register_writer_clear_counters,
     },
     {
+        .reg = 4000,
+        .reader = modbus_register_reader_fw_major,
+    },
+    {
+        .reg = 4001,
+        .reader = modbus_register_reader_fw_minor,
+    },
+    {
+        .reg = 4005,
+        .gap = 1,
+        .reader = modbus_register_reader_serial_addr,
+    },
+    {
         .reg = 4007,
         .reader = modbus_register_reader_sensor_count,
     },
@@ -510,28 +521,10 @@ static struct modbus_register _registers[] = {
         .writer = modbus_register_writer_ao_source,
     },
     {
-        .reg = 4036,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 0,
-    },
-    {
         .reg = 4037,
         .reader = modbus_register_reader_active_function_set,
         .writer = modbus_register_writer_active_function_set,
         .active_function_set.id = 0,
-    },
-    {
-        .reg = 4038,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 1,
-    },
-    {
-        .reg = 4039,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 2,
     },
     {
         .reg = 4040,
@@ -539,22 +532,10 @@ static struct modbus_register _registers[] = {
         .writer = modbus_register_writer_safe_temperature_threshold,
     },
     {
-        .reg = 4041,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 3,
-    },
-    {
         .reg = 4042,
         .reader = modbus_register_reader_active_function_set,
         .writer = modbus_register_writer_active_function_set,
         .active_function_set.id = 1,
-    },
-    {
-        .reg = 4043,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 4,
     },
     {
         .reg = 4044,
@@ -589,13 +570,6 @@ static struct modbus_register _registers[] = {
         .id.start = 24,
     },
     {
-        .reg = 4064,
-        .gap = 5,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 5,
-    },
-    {
         .reg = 4070,
         .gap = 22,
         .reader = modbus_register_reader_function_set_attribute,
@@ -624,15 +598,7 @@ static struct modbus_register _registers[] = {
         .function_set.functor = 3,
     },
     {
-        .reg = 4600,
-        .gap = 34,
-        .reader = modbus_register_reader_unknown,
-        .writer = modbus_register_writer_unknown,
-        .unknown.offset = 11,
-    },
-    {
         .reg = 4999,
-        .reader = modbus_register_reader_download,
         .writer = modbus_register_writer_download,
     },
     {
@@ -754,6 +720,11 @@ static struct modbus_register _registers[] = {
         .reader = modbus_register_reader_relay_action_count,
         .relay = 1,
     },
+    {
+        .reg = 0xfff0,
+        .gap = 1,
+        .reader = modbus_register_reader_identify,
+    },
 };
 
 static uint16_t modbus_register_reader_combine(struct modbus_register *r, uint16_t reg)
@@ -801,18 +772,26 @@ void modbus_recv(uint8_t *protocol, int size)
         _resp[0] = protocol[0];
         _resp[1] = protocol[1];
         _resp[2] = count / 8 + !!(count % 8);
+        memset(&_resp[3], 0, _resp[2]);
         for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
         {
             for (uint8_t gap = 0; gap <= _registers[i].gap; gap++)
             {
-                if (reg <= (_registers[i].reg + gap) && (_registers[i].reg + gap) < (reg + count) && _registers[i].reader)
+                if (reg <= (_registers[i].reg + gap) && (_registers[i].reg + gap) < (reg + count))
                 {
                     uint8_t pos = _registers[i].reg + gap - reg;
-                    uint16_t v = _registers[i].reader(&_registers[i], _registers[i].reg + gap);
-                    SEGGER_RTT_printf(0, "\treg:%u v:%u\n", _registers[i].reg + gap, v);
-                    if (v)
+                    if (_registers[i].reader)
                     {
-                        _resp[3 + pos / 8] |= 1 << (pos % 8);
+                        uint16_t v = _registers[i].reader(&_registers[i], _registers[i].reg + gap);
+                        SEGGER_RTT_printf(0, "\treg:%5u r:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                        if (v)
+                        {
+                            _resp[3 + pos / 8] |= 1 << (pos % 8);
+                        }
+                    }
+                    else
+                    {
+                        SEGGER_RTT_printf(0, "\treg:%5u missing\n", _registers[i].reg + gap);
                     }
                 }
             }
@@ -832,17 +811,19 @@ void modbus_recv(uint8_t *protocol, int size)
         _resp[0] = protocol[0];
         _resp[1] = protocol[1];
         _resp[2] = count * 2;
+        memset(&_resp[3], 0, _resp[2]);
         for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
         {
             for (uint8_t gap = 0; gap <= _registers[i].gap; gap++)
             {
                 if (reg <= (_registers[i].reg + gap) && (_registers[i].reg + gap) < (reg + count) && _registers[i].reader)
                 {
-                    uint8_t pos = _registers[i].reg + gap - reg;
                     uint16_t v = _registers[i].reader(&_registers[i], _registers[i].reg + gap);
-                    SEGGER_RTT_printf(0, "\treg:%u v:%u\n", _registers[i].reg + gap, v);
+                    SEGGER_RTT_printf(0, "\treg:%5u r:%5x(%u)\n", _registers[i].reg + gap, v, v);
                     if (v)
                     {
+                        uint8_t pos = _registers[i].reg + gap - reg;
+
                         _resp[3 + pos * 2 + 0] = v >> 8;
                         _resp[3 + pos * 2 + 1] = v;
                     }
@@ -858,25 +839,34 @@ void modbus_recv(uint8_t *protocol, int size)
     {
         uint16_t reg = ((uint16_t)protocol[2] << 8) + protocol[3];
         uint16_t v = ((uint16_t)protocol[4] << 8) + protocol[5];
+        usart_send(protocol, size);
 
         SEGGER_RTT_printf(0, "write single coil reg:%u value:%u\n", reg, v);
-
+        
         for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
         {
             for (uint8_t gap = 0; gap <= _registers[i].gap; gap++)
             {
-                if ((_registers[i].reg + gap) == reg && _registers[i].writer)
+                if ((_registers[i].reg + gap) == reg)
                 {
-                    _registers[i].writer(&_registers[i], _registers[i].reg + gap, !!v);
+                    if (_registers[i].writer)
+                    {
+                        SEGGER_RTT_printf(0, "\treg:%5u w:%u\n", _registers[i].reg + gap, !!v);
+                        _registers[i].writer(&_registers[i], _registers[i].reg + gap, !!v);
+                    }
+                    else
+                    {
+                        SEGGER_RTT_printf(0, "\treg:%5u missing\n", _registers[i].reg + gap);
+                    }
                 }
             }
         }
-        usart_send(protocol, size);
     }
     else if (0x06 == protocol[1])
     {
         uint16_t reg = ((uint16_t)protocol[2] << 8) + protocol[3];
         uint16_t v = ((uint16_t)protocol[4] << 8) + protocol[5];
+        usart_send(protocol, size);
         
         SEGGER_RTT_printf(0, "write single register:%u value:%u\n", reg, v);
 
@@ -884,14 +874,20 @@ void modbus_recv(uint8_t *protocol, int size)
         {
             for (uint8_t gap = 0; gap <= _registers[i].gap; gap++)
             {
-                if ((_registers[i].reg + gap) == reg && _registers[i].writer)
+                if ((_registers[i].reg + gap) == reg)
                 {
-                    SEGGER_RTT_printf(0, "\treg:%u v:%u\n", _registers[i].reg + gap, v);
-                    _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
+                    if (_registers[i].writer)
+                    {
+                        SEGGER_RTT_printf(0, "\treg:%5u w:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                        _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
+                    }
+                    else
+                    {
+                        SEGGER_RTT_printf(0, "\treg:%5u missing\n", _registers[i].reg + gap);
+                    }
                 }
             }
         }
-        usart_send(protocol, size);
     }
     else if (0x0f == protocol[1])
     {
@@ -899,13 +895,17 @@ void modbus_recv(uint8_t *protocol, int size)
         uint16_t count = ((uint16_t)protocol[4] << 8) + protocol[5];
         uint8_t length = protocol[6];
 
+        memcpy(_resp, protocol, 6);
+        uint16_t crc = crc16(_resp, 6);
+        _resp[6] = crc >> 8;
+        _resp[7] = crc;
+        usart_send(_resp, 8);
+
         SEGGER_RTT_printf(0, "write multiple coils start:%u count:%u length:%u\n", start, count, length);
 
-        uint8_t pos = 0;
         for (int reg = start; reg < start + count; reg++)
         {
-            uint16_t v = protocol[7 + pos / 8] & (1 << pos % 8);
-            pos++;
+            uint16_t v = protocol[7 + (reg - start) / 8] & (1 << ((reg - start) % 8));
         
             SEGGER_RTT_printf(0, "\treg:%u value:%u\n", reg, v);
 
@@ -913,43 +913,59 @@ void modbus_recv(uint8_t *protocol, int size)
             {
                 for (uint8_t gap = 0; gap <= _registers[i].gap; gap++)
                 {
-                    if ((_registers[i].reg + gap) == reg && _registers[i].writer)
+                    if ((_registers[i].reg + gap) == reg)
                     {
-                        SEGGER_RTT_printf(0, "\treg:%u v:%u\n", _registers[i].reg + gap, v);
-                        _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
+                        if (_registers[i].writer)
+                        {
+                            SEGGER_RTT_printf(0, "\treg:%u w:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                            _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
+                        }
+                        else
+                        {
+                            SEGGER_RTT_printf(0, "\treg:%u missing\n", _registers[i].reg + gap);
+                        }
                     }
                 }
             }
         }
-        usart_send(protocol, 6);
     }
     else if (0x10 == protocol[1])
     {
         uint16_t start = ((uint16_t)protocol[2] << 8) + protocol[3];
         uint16_t count = ((uint16_t)protocol[4] << 8) + protocol[5];
-        uint16_t length = ((uint16_t)protocol[6] << 8) + protocol[7];
+        uint8_t length = protocol[6];
+        
+        memcpy(_resp, protocol, 6);
+        uint16_t crc = crc16(_resp, 6);
+        _resp[6] = crc >> 8;
+        _resp[7] = crc;
+        usart_send(_resp, 8);
         
         SEGGER_RTT_printf(0, "write multiple register start:%u count:%u length:%u\n", start, count, length);
 
-        uint8_t pos = 0;
         for (int reg = start; reg < start + count; reg++)
         {
+            uint16_t v = (((uint16_t)protocol[7 + (reg - start) * 2]) << 8) + protocol[7 + (reg - start) * 2 + 1];
+
             for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
             {
                 for (uint8_t gap = 0; gap <= _registers[i].gap; gap++)
                 {
-                    if ((_registers[i].reg + gap) == reg && _registers[i].writer)
+                    if ((_registers[i].reg + gap) == reg)
                     {
-                        uint16_t v = (((uint16_t)protocol[8 + pos * 2]) << 8) + protocol[8 + pos * 2 + 1];
-                        pos++;
-
-                        SEGGER_RTT_printf(0, "\treg:%u value:%u\n", reg, v);
-                        _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
+                        if (_registers[i].writer)
+                        {
+                            SEGGER_RTT_printf(0, "\treg:%u w:%5x(%u)\n", reg, v, v);
+                            _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
+                        }
+                        else
+                        {
+                            SEGGER_RTT_printf(0, "\treg:%u missing\n", reg);
+                        }
                     }
                 }
             }
         }
-        usart_send(protocol, 6);
     }
 }
 
@@ -976,8 +992,20 @@ void modbus_address_apply(void)
 
 void modbus_init(void)
 {
+    eeprom_read(EEPROM_SETTINGS_MODBUS_ID, _id, sizeof(uint16_t) * 4 * 7);
+    if (_id[0] == 0xffff)
+    {
+        memcpy(_id, _default_id, sizeof(uint16_t) * 4 * 7);
+        eeprom_write(EEPROM_SETTINGS_MODBUS_ID, _id, sizeof(uint16_t) * 4 * 7);
+    }
+    eeprom_read(EEPROM_SETTINGS_MODBUS_LAST_ID, _last_id, sizeof(uint16_t) * 4 * 7);
+    if (_last_id[0] == 0xffff)
+    {
+        memcpy(_last_id, _default_id, sizeof(uint16_t) * 4 * 7);
+        eeprom_write(EEPROM_SETTINGS_MODBUS_LAST_ID, _last_id, sizeof(uint16_t) * 4 * 7);
+    }
     eeprom_read(EEPROM_SETTINGS_MODBUS_ADDR, _address, 2);
-    if (_address[0] == 0xff || _address[1] == 0xff)
+    if (_address[0] == 0xff)
     {
         _address[0] = _address[1] = 1;
     }

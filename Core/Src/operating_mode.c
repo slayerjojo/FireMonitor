@@ -11,6 +11,7 @@ void operating_mode_init(void)
     {
         _mode = 1;
     }
+    _temp = _mode;
 }
 
 uint8_t operating_mode_temp_get(void)

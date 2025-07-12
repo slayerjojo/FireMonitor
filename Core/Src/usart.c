@@ -5,11 +5,11 @@
 #include "eeprom.h"
 #include "crc16.h"
 
-#define MAX_UART_BUFFER 128
+#define MAX_UART_BUFFER 256
 
 extern UART_HandleTypeDef huart1;
 
-static uint8_t _buffer[MAX_UART_BUFFER + 64] = {0};
+static uint8_t _buffer[MAX_UART_BUFFER * 2] = {0};
 static uint16_t _pos = 0;
 static uint16_t _append = 0;
 uint32_t _baud = 9600;
@@ -19,14 +19,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)//call 
 {
     if (huart == &huart1)
     {
-        SEGGER_RTT_printf(0, "uart size:%u\n", size);
         _buffer[_append] = size;
         _append += 1 + size;
         if (_append >= MAX_UART_BUFFER)
         {
             _append = 0;
         }
-        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER + 64 - _append - 1);
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER * 2 - _append - 1);
     }
 }
 
@@ -34,7 +33,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart == &huart1)
     {
-        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER + 64 - _append - 1);
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER * 2 - _append - 1);
     }
 }
 
@@ -67,7 +66,7 @@ void usart_init(void)
     HAL_GPIO_WritePin(MODBUS_PV_GPIO_Port, MODBUS_PV_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(MODBUS_DE_GPIO_Port, MODBUS_DE_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(MODBUS_RTS_GPIO_Port, MODBUS_RTS_Pin, GPIO_PIN_RESET);
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER + 64 - _append - 1);
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER * 2 - _append - 1);
 }
 
 void usart_update(void)
@@ -75,15 +74,16 @@ void usart_update(void)
     if (_pos == _append)
         return;
 
+    /*
     SEGGER_RTT_printf(0, "usart recv:");
     for (int i = 0; i < _buffer[_pos]; i++)
     {
         SEGGER_RTT_printf(0, "%02x ", _buffer[_pos + 1 + i]);
     }
     SEGGER_RTT_printf(0, "\n");
+    */
 
     modbus_recv(&_buffer[_pos + 1], _buffer[_pos]);
-    //usart_send(&_buffer[_pos + 1], _buffer[_pos]);//chenjing
     _pos += 1 + _buffer[_pos];
     if (_pos > MAX_UART_BUFFER)
         _pos = 0;

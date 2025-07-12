@@ -1,4 +1,5 @@
 #include "sensor.h"
+#include "timer.h"
 #include "function_set.h"
 #include "main.h"
 #include "arm_math.h"
@@ -7,7 +8,7 @@
 
 #define SAMPLE_FREQ 500
 #define MAX_SAMPLE 1024
-#define MAX_ADC_SAMPLE 1000
+#define MAX_ADC_SAMPLE 1500
 
 extern ADC_HandleTypeDef hadc1;
 extern TIM_HandleTypeDef htim3;
@@ -20,8 +21,10 @@ static float _samples_filter[MAX_SAMPLE] = {0};
 static uint16_t _filter_smoothing = MAX_SAMPLE;
 static uint16_t _fft_smoothing = MAX_SAMPLE;
 static uint16_t _sample_tail = MAX_SAMPLE - 1;
+static int16_t _sample_total = 0;
+static uint32_t _timer_pause = 0;
 
-static arm_cfft_radix4_instance_f32 _fft;
+static arm_cfft_instance_f32 _fft;
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -33,31 +36,46 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 void sensor_init(void)
 {
-    HAL_ADC_Start(&hadc1);
     HAL_TIM_Base_Start_IT(&htim3);
 
-    arm_cfft_radix4_init_f32(&_fft, MAX_SAMPLE, 0, 1);
 
     SEGGER_RTT_printf(0, "sensor initialized\n");
 }
 
 void sensor_update(void)
 {
-    if (_sampling)
+    if (_sampling && (!_timer_pause || timer_diff(_timer_pause) > 10000))
     {
-        if (HAL_OK == HAL_ADC_PollForConversion(&hadc1, 50))
+        _timer_pause = 0;
+
+        HAL_ADC_Start(&hadc1);
+        HAL_StatusTypeDef ret = HAL_ADC_PollForConversion(&hadc1, 500);
+        if (HAL_OK != ret)
+        {
+            SEGGER_RTT_printf(0, "HAL_ADC_PollForConversion ret:%u\n", ret);
+            return;
+        }
+        if (HAL_IS_BIT_SET(HAL_ADC_GetState(&hadc1), HAL_ADC_STATE_REG_EOC))
         {
             _sampling = 0;
             _sample_tail = (_sample_tail + 1) % MAX_SAMPLE;
             _samples_raw[_sample_tail] = _samples_raw[MAX_SAMPLE + _sample_tail] = HAL_ADC_GetValue(&hadc1);
+            /*
+            SEGGER_RTT_printf(0, "%.0f ", _samples_raw[_sample_tail]);
+            if (1 == _sample_tail % 10)
+                SEGGER_RTT_printf(0, "\n");
+            */
             _fft_smoothing = _filter_smoothing = MAX_SAMPLE;
+            if (_sample_total < MAX_SAMPLE)
+                _sample_total++;
         }
+        HAL_ADC_Stop(&hadc1);
     }
 }
 
 uint8_t sensor_type_get(void)
 {
-    return 3;
+    return 2;
 }
 
 uint16_t sensor_intensity_raw_get(uint8_t sensor)
@@ -72,8 +90,15 @@ uint16_t sensor_intensity_get(uint8_t sensor, uint16_t smoothing)
     if (sensor)
         return 0;
 
-    float intensity = 0;
-    arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - smoothing], smoothing, &intensity);
+    float intensity = _samples_raw[MAX_SAMPLE + _sample_tail];
+    if (smoothing)
+    {
+        arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - smoothing], smoothing, &intensity);
+    }
+    if (intensity > MAX_ADC_SAMPLE)
+    {
+        intensity = MAX_ADC_SAMPLE;
+    }
     return (uint16_t)ceil(100 * intensity / MAX_ADC_SAMPLE);
 }
 
@@ -81,23 +106,26 @@ uint16_t sensor_amplitude_get(uint8_t sensor, uint16_t smoothing)
 {
     if (sensor)
         return 0;
-    float *samples = _samples_raw;
+    if (_sample_total < smoothing)
+        return 0;
+    float *samples = &_samples_raw[MAX_SAMPLE + _sample_tail - _sample_total];
     if (smoothing)
     {
         samples = _samples_filter;
         if (_filter_smoothing != smoothing)
         {
-            for (int i = 0; i < MAX_SAMPLE; i++)
+            for (int i = 0; i < _sample_total - smoothing; i++)
             {
-                arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - smoothing + i], smoothing, &samples[i]);
+                arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - _sample_total + i], smoothing, &samples[i]);
             }
             _filter_smoothing = smoothing;
         }
     }
     float max = 0;
-    arm_max_no_idx_f32(samples, MAX_SAMPLE, &max);
+    arm_max_no_idx_f32(samples, _sample_total - smoothing, &max);
     float min = 0;
-    arm_min_no_idx_f32(samples, MAX_SAMPLE, &min);
+    arm_min_no_idx_f32(samples, _sample_total - smoothing, &min);
+    //SEGGER_RTT_printf(0, "amplitude:%f - %f\n", min, max);
     return (uint16_t)ceil(100 * (max - min) / MAX_ADC_SAMPLE);
 }
 
@@ -105,37 +133,42 @@ uint16_t sensor_flicker_frequency_get(uint8_t sensor, uint16_t smoothing, uint16
 {
     if (sensor)
         return 0;
+    if (_sample_total < smoothing)
+        return 0;
     if (_fft_smoothing != smoothing)
     {
-        for (int i = 0; i < MAX_SAMPLE; i++)
+        arm_cfft_init_f32(&_fft, _sample_total - smoothing);
+        for (int i = 0; i < _sample_total - smoothing; i++)
         {
             if (smoothing)
             {
-                arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - smoothing + i], smoothing, &_samples_fft[i * 2]);
+                arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - _sample_total + i], smoothing, &_samples_fft[i * 2]);
             }
             else
             {
-                _samples_fft[i * 2] = _samples_raw[MAX_SAMPLE + _sample_tail - smoothing + i];
+                _samples_fft[i * 2] = _samples_raw[MAX_SAMPLE + _sample_tail - _sample_total + i];
             }
             _samples_fft[i * 2 + 1] = 0;
         }
-        arm_cfft_radix4_f32(&_fft, _samples_fft);
-        arm_cmplx_mag_f32(_samples_fft, _fft_result, MAX_SAMPLE);
+        arm_cfft_f32(&_fft, _samples_fft, 0, 1);
+        arm_cmplx_mag_f32(_samples_fft, _fft_result, _sample_total - smoothing);
 
-        for (int i = 0; i < MAX_SAMPLE / 2; i++)
+        for (int i = 0; i < (_sample_total - smoothing) / 2; i++)
         {
-            _fft_result[i] /= MAX_SAMPLE;
+            _fft_result[i] /= (_sample_total - smoothing);
             if (i)
             {
                 _fft_result[i] /= 2;
             }
+            //SEGGER_RTT_printf(0, "%f, ", _fft_result[i]);
         }
+        //SEGGER_RTT_printf(0, "\n");
         _fft_smoothing = smoothing;
     }
     uint16_t flicker = 0;
-    for (int i = 1; i < MAX_SAMPLE / 2; i++)
+    for (int i = 1; i < (_sample_total - smoothing) / 2; i++)
     {
-        float freq = (float)i * SAMPLE_FREQ / MAX_SAMPLE;
+        float freq = (float)i * SAMPLE_FREQ / (_sample_total - smoothing);
         
         if (freq > max)
         {
@@ -144,7 +177,7 @@ uint16_t sensor_flicker_frequency_get(uint8_t sensor, uint16_t smoothing, uint16
 
         if (flicker)
         {
-            float freq_flicker = (float)flicker * SAMPLE_FREQ / MAX_SAMPLE;
+            float freq_flicker = (float)flicker * SAMPLE_FREQ / (_sample_total - smoothing);
 
             if (_fft_result[i] * (1 - (freq - max * sensitivity / 100) / max) > _fft_result[flicker] * (1 - (freq_flicker - max * sensitivity / 100) / max))
             {
@@ -156,7 +189,12 @@ uint16_t sensor_flicker_frequency_get(uint8_t sensor, uint16_t smoothing, uint16
             flicker = i;
         }
     }
-    return (uint16_t)ceil((float)flicker * SAMPLE_FREQ / MAX_SAMPLE * 100 / max);
+    if (_fft_result[flicker] < 10)
+    {
+        flicker = 0;
+    }
+    //SEGGER_RTT_printf(0, "freq:%f\n", (float)flicker * SAMPLE_FREQ / (_sample_total - smoothing));
+    return (uint16_t)ceil((float)flicker * SAMPLE_FREQ / (_sample_total - smoothing) * 100 / max);
 }
 
 uint16_t sensor_quality_get(uint8_t sensor, struct function_set *f)
@@ -172,5 +210,13 @@ uint16_t sensor_quality_get(uint8_t sensor, struct function_set *f)
     quality /= MAX(f->intensity.normalization.value, f->intensity.normalization.high);
     quality /= MAX(f->frequency.normalization.value, f->frequency.normalization.high);
     quality /= MAX(f->amplitude.normalization.value, f->amplitude.normalization.high);
+
+    SEGGER_RTT_printf(0, "intensity:%u frequency:%u amplitude:%u quality:%u\n", intensity, frequency, amplitude, quality);
     return quality;
+}
+
+void sensor_sample_pause(uint8_t action)
+{
+    SEGGER_RTT_printf(0, "sensor_sample_pause action:%u\n", action);
+    _timer_pause = action ? timer_start() : 0;
 }

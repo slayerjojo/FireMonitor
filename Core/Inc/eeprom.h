@@ -22,6 +22,9 @@
 #define EEPROM_SETTINGS_RELAY_OVERRIDDEN 416
 #define EEPROM_SETTINGS_USART_BAUD 417
 #define EEPROM_SETTINGS_MODBUS_ADDR 421
+#define EEPROM_SETTINGS_MODBUS_ID (421 + 2)
+#define EEPROM_SETTINGS_MODBUS_LAST_ID (423 + 56)
+#define EEPROM_SETTINGS_NEXT (479 + 56)
 
 void eeprom_write(uint16_t addr, const void *data, uint16_t size);
 void eeprom_read(uint16_t addr, void *data, uint16_t size);

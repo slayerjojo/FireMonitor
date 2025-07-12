@@ -144,7 +144,7 @@ void Error_Handler(void);
 #define TEMP_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-#define FW_VERSION "C.1"
+#define FW_VERSION "C.3"
 #define MAX_SENSORS 1
 #define CORE_TEMPERATURE_THRESHOLD 800
 

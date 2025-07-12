@@ -296,6 +296,20 @@ static void _PrintInt(SEGGER_RTT_PRINTF_DESC * pBufferDesc, int v, unsigned Base
   }
 }
 
+static unsigned int _powBuf[] = {1, 10, 100, 1000, 10000, 100000, 1000000};
+/*********************************************************************
+ *
+ *       _pow
+ */
+static unsigned int _pow(unsigned char base, unsigned char index)
+{
+  (void)base;
+  if (index <= 6)
+    return _powBuf[index];
+  else
+    return 1;
+}
+
 /*********************************************************************
 *
 *       Public code
@@ -437,6 +451,30 @@ int SEGGER_RTT_vprintf(unsigned BufferIndex, const char * sFormat, va_list * pPa
       case 'p':
         v = va_arg(*pParamList, int);
         _PrintUnsigned(&BufferDesc, (unsigned)v, 16u, 8u, 8u, 0u);
+        break;
+      case 'f':
+      case 'F':
+        {
+            float fv = (float)va_arg(*pParamList, double); // Retrieves the input floating point value
+     
+            v = (int)fv;                                                         // Take the positive integer part
+            _PrintInt(&BufferDesc, v, 10u, FieldWidth, FieldWidth, FormatFlags); // According to an integer
+     
+            if ((NumDigits == 0) || (NumDigits > 6)) // 最高打印6位小数
+              NumDigits = 6;
+     
+            _StoreChar(&BufferDesc, '.'); // Display decimal point
+            unsigned int powN = _pow(10, NumDigits);
+     
+            fv = fv - v;            // 取小数部分
+            fv = fv < 0 ? -fv : fv; // 取小数的绝对值
+            fv *= powN;             // 根据显示精度取整
+            v = (int)(fv);
+            if (fv - v >= 0.5f) // 四舍五入
+              v += 1;
+     
+            _PrintUnsigned(&BufferDesc, (unsigned)v, 10u, NumDigits, FieldWidth, FormatFlags | FORMAT_FLAG_LEFT_JUSTIFY | FORMAT_FLAG_PAD_ZERO); // Display three decimal places
+        }
         break;
       case '%':
         _StoreChar(&BufferDesc, '%');
