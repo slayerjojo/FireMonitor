@@ -24,7 +24,8 @@
 #define EEPROM_SETTINGS_MODBUS_ADDR 421
 #define EEPROM_SETTINGS_MODBUS_ID (421 + 2)
 #define EEPROM_SETTINGS_MODBUS_LAST_ID (423 + 56)
-#define EEPROM_SETTINGS_NEXT (479 + 56)
+#define EEPROM_SETTINGS_LOG (479 + 56)
+#define EEPROM_SETTINGS_NEXT (535 + 1)
 
 void eeprom_write(uint16_t addr, const void *data, uint16_t size);
 void eeprom_read(uint16_t addr, void *data, uint16_t size);

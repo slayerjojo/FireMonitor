@@ -6,8 +6,8 @@
 #include "usart.h"
 #include <stdio.h>
 
-#define SAMPLE_FREQ 500
-#define MAX_SAMPLE 1024
+#define SAMPLE_FREQ 250
+#define MAX_SAMPLE 250
 #define MAX_ADC_SAMPLE 1500
 
 extern ADC_HandleTypeDef hadc1;
@@ -22,7 +22,7 @@ static uint16_t _filter_smoothing = MAX_SAMPLE;
 static uint16_t _fft_smoothing = MAX_SAMPLE;
 static uint16_t _sample_tail = MAX_SAMPLE - 1;
 static int16_t _sample_total = 0;
-static uint32_t _timer_pause = 0;
+static uint32_t _pause = 0;
 
 static arm_cfft_instance_f32 _fft;
 
@@ -38,18 +38,17 @@ void sensor_init(void)
 {
     HAL_TIM_Base_Start_IT(&htim3);
 
-
     SEGGER_RTT_printf(0, "sensor initialized\n");
 }
 
 void sensor_update(void)
 {
-    if (_sampling && (!_timer_pause || timer_diff(_timer_pause) > 10000))
+    if (_sampling && (!_pause || timer_diff(_pause) > 10000))
     {
-        _timer_pause = 0;
+        _pause = 0;
 
         HAL_ADC_Start(&hadc1);
-        HAL_StatusTypeDef ret = HAL_ADC_PollForConversion(&hadc1, 500);
+        HAL_StatusTypeDef ret = HAL_ADC_PollForConversion(&hadc1, 50);
         if (HAL_OK != ret)
         {
             SEGGER_RTT_printf(0, "HAL_ADC_PollForConversion ret:%u\n", ret);
@@ -85,27 +84,8 @@ uint16_t sensor_intensity_raw_get(uint8_t sensor)
     return _samples_raw[_sample_tail];
 }
 
-uint16_t sensor_intensity_get(uint8_t sensor, uint16_t smoothing)
+static float *sample_smoothing(uint16_t smoothing)
 {
-    if (sensor)
-        return 0;
-
-    float intensity = _samples_raw[MAX_SAMPLE + _sample_tail];
-    if (smoothing)
-    {
-        arm_mean_f32(&_samples_raw[MAX_SAMPLE + _sample_tail - smoothing], smoothing, &intensity);
-    }
-    if (intensity > MAX_ADC_SAMPLE)
-    {
-        intensity = MAX_ADC_SAMPLE;
-    }
-    return (uint16_t)ceil(100 * intensity / MAX_ADC_SAMPLE);
-}
-
-uint16_t sensor_amplitude_get(uint8_t sensor, uint16_t smoothing)
-{
-    if (sensor)
-        return 0;
     if (_sample_total < smoothing)
         return 0;
     float *samples = &_samples_raw[MAX_SAMPLE + _sample_tail - _sample_total];
@@ -121,12 +101,50 @@ uint16_t sensor_amplitude_get(uint8_t sensor, uint16_t smoothing)
             _filter_smoothing = smoothing;
         }
     }
+    return samples;
+}
+
+uint16_t sensor_intensity_get(uint8_t sensor, uint16_t smoothing)
+{
+    if (sensor)
+        return 0;
+
+    float *samples = sample_smoothing(smoothing);
+    if (!samples)
+        return 0;
+
+    float intensity = 0;
+    arm_mean_f32(samples, _sample_total - smoothing, &intensity);
+
+    if (intensity > MAX_ADC_SAMPLE)
+    {
+        intensity = MAX_ADC_SAMPLE;
+    }
+    return (uint16_t)ceil(100 * intensity / MAX_ADC_SAMPLE);
+}
+
+uint16_t sensor_amplitude_get(uint8_t sensor, uint16_t smoothing)
+{
+    if (sensor)
+        return 0;
+    
+    float *samples = sample_smoothing(smoothing);
+    if (!samples)
+        return 0;
+
     float max = 0;
     arm_max_no_idx_f32(samples, _sample_total - smoothing, &max);
     float min = 0;
     arm_min_no_idx_f32(samples, _sample_total - smoothing, &min);
+    
     //SEGGER_RTT_printf(0, "amplitude:%f - %f\n", min, max);
-    return (uint16_t)ceil(100 * (max - min) / MAX_ADC_SAMPLE);
+
+    max -= min;
+    if (max > MAX_ADC_SAMPLE)
+    {
+        max = MAX_ADC_SAMPLE;
+    }
+    return (uint16_t)ceil(100 * max / MAX_ADC_SAMPLE);
 }
 
 uint16_t sensor_flicker_frequency_get(uint8_t sensor, uint16_t smoothing, uint16_t sensitivity, uint16_t max)
@@ -218,5 +236,5 @@ uint16_t sensor_quality_get(uint8_t sensor, struct function_set *f)
 void sensor_sample_pause(uint8_t action)
 {
     SEGGER_RTT_printf(0, "sensor_sample_pause action:%u\n", action);
-    _timer_pause = action ? timer_start() : 0;
+    _pause = action ? timer_start() : 0;
 }

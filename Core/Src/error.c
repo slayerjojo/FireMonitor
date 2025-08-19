@@ -1,4 +1,5 @@
 #include "error.h"
+#include "log.h"
 #include "main.h"
 
 static uint32_t _error = 0;
@@ -6,6 +7,7 @@ static uint32_t _error = 0;
 void error_set(uint8_t error)
 {
     _error |= 1ul << error;
+    log_append(0x01, error);
 }
 
 void error_clear(uint8_t error)

@@ -25,6 +25,8 @@
 #include "tempareture.h"
 #include "analog_output.h"
 #include "function_set.h"
+#include "operating_mode.h"
+#include "log.h"
 #include "key.h"
 #include "digit.h"
 #include "led.h"
@@ -134,12 +136,14 @@ int main(void)
   /* USER CODE BEGIN 2 */
   
   flash_init();
+  log_init();
   digit_init();
   sensor_init();
   relay_init();
   tempareture_init();
   analog_output_init();
   function_set_init();
+  operating_mode_init();
   key_init();
   led_init();
   menu_init();
@@ -432,7 +436,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 168-1;
+  htim3.Init.Prescaler = 336-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 1000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;

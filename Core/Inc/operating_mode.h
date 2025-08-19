@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+void operating_mode_init(void);
 uint8_t operating_mode_temp_get(void);
 void operating_mode_ts(uint8_t mode);
 uint8_t operating_mode_get(void);

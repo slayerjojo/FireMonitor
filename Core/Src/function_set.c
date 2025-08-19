@@ -1,5 +1,6 @@
 #include "function_set.h"
 #include "main.h"
+#include "log.h"
 #include "led.h"
 #include "sensor.h"
 #include "relay.h"
@@ -73,19 +74,19 @@ static uint32_t _save_timer = 0;
 static void function_set_info(struct function_set *f)
 {
     SEGGER_RTT_printf(0, "intensity:\n");
-    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u)\n", f->intensity.trip.pull_in, f->intensity.trip.drop_out, f->intensity.trip.high);
-    SEGGER_RTT_printf(0, "\tnorm(value:%u high:%u)\n", f->intensity.normalization.value, f->intensity.normalization.high);
-    SEGGER_RTT_printf(0, "\tfilter:%u\n", f->intensity.filter);
+    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u) ", f->intensity.trip.pull_in, f->intensity.trip.drop_out, f->intensity.trip.high);
+    SEGGER_RTT_printf(0, "norm(value:%u high:%u) ", f->intensity.normalization.value, f->intensity.normalization.high);
+    SEGGER_RTT_printf(0, "filter:%u\n", f->intensity.filter);
 
     SEGGER_RTT_printf(0, "frequency:\n");
-    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u)\n", f->frequency.trip.pull_in, f->frequency.trip.drop_out, f->frequency.trip.high);
-    SEGGER_RTT_printf(0, "\tnorm(value:%u high:%u)\n", f->frequency.normalization.value, f->frequency.normalization.high);
-    SEGGER_RTT_printf(0, "\tfilter:%u max:%u sensitivity:%u\n", f->frequency.filter, f->frequency.max, f->frequency.sensitivity);
+    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u) ", f->frequency.trip.pull_in, f->frequency.trip.drop_out, f->frequency.trip.high);
+    SEGGER_RTT_printf(0, "norm(value:%u high:%u) ", f->frequency.normalization.value, f->frequency.normalization.high);
+    SEGGER_RTT_printf(0, "filter:%u max:%u sensitivity:%u\n", f->frequency.filter, f->frequency.max, f->frequency.sensitivity);
     
     SEGGER_RTT_printf(0, "amplitude:\n");
-    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u)\n", f->amplitude.trip.pull_in, f->amplitude.trip.drop_out, f->amplitude.trip.high);
-    SEGGER_RTT_printf(0, "\tnorm(value:%u high:%u)\n", f->amplitude.normalization.value, f->amplitude.normalization.high);
-    SEGGER_RTT_printf(0, "\tfilter:%u\n", f->amplitude.filter);
+    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u) ", f->amplitude.trip.pull_in, f->amplitude.trip.drop_out, f->amplitude.trip.high);
+    SEGGER_RTT_printf(0, "norm(value:%u high:%u) ", f->amplitude.normalization.value, f->amplitude.normalization.high);
+    SEGGER_RTT_printf(0, "filter:%u\n", f->amplitude.filter);
     
     SEGGER_RTT_printf(0, "delay(pull:%u drop:%u)\n", f->delay.pull_in, f->delay.drop_out);
     
@@ -106,6 +107,7 @@ void function_set_init(void)
     eeprom_read(EEPROM_SETTINGS_FS_AC_AMPLITUDE_ENABLE, &_ac_amplitude_enable, 1);
     if (_fsa.quality_threshold == 0xffff)
     {
+        SEGGER_RTT_printf(0, "load default function set\n");
         memcpy(&_fsa, &_default, sizeof(_default));
         memcpy(&_fsb, &_default, sizeof(_default));
         memcpy(&_fsc, &_default, sizeof(_default));
@@ -226,47 +228,25 @@ uint8_t function_set_flame_status_get(uint8_t sensor, struct function_set *f, ui
     uint16_t intensity = sensor_intensity_get(sensor, f->intensity.filter);
     uint16_t frequency = sensor_flicker_frequency_get(sensor, f->frequency.filter, f->frequency.sensitivity, f->frequency.max);
     uint16_t amplitude = sensor_amplitude_get(sensor, f->amplitude.filter);
-            
+
     if (prev_status)
     {
-        if (_alternative_flame_logic)
-        {
-            if ((intensity <= f->intensity.trip.drop_out &&
-                frequency <= f->frequency.trip.drop_out &&
-                (!_ac_amplitude_enable || amplitude <= f->amplitude.trip.drop_out)) || 
-                (_high_limit_enable && (
-                    intensity >= f->intensity.trip.high &&
-                    frequency >= f->frequency.trip.high &&
-                    (!_ac_amplitude_enable || amplitude >= f->amplitude.trip.high))))
-            {
-                return 0;
-            }
-        }
-        else if ((intensity <= f->intensity.trip.drop_out ||
-            frequency <= f->frequency.trip.drop_out ||
-            (_ac_amplitude_enable && amplitude <= f->amplitude.trip.drop_out)) ||
+        if ((intensity < f->intensity.trip.drop_out &&
+            frequency < f->frequency.trip.drop_out &&
+            (!_ac_amplitude_enable || amplitude < f->amplitude.trip.drop_out)) || 
             (_high_limit_enable && (
-                intensity >= f->intensity.trip.high ||
-                frequency >= f->frequency.trip.high ||
-                (_ac_amplitude_enable && amplitude >= f->amplitude.trip.high))))
+                intensity >= f->intensity.trip.high &&
+                frequency >= f->frequency.trip.high &&
+                (!_ac_amplitude_enable || amplitude >= f->amplitude.trip.high))))
         {
             return 0;
         }
     }
     else
     {
-        if (_alternative_flame_logic)
-        {
-            if (intensity >= f->intensity.trip.pull_in &&
-                frequency >= f->frequency.trip.pull_in &&
-                (!_ac_amplitude_enable || amplitude >= f->amplitude.trip.pull_in))
-            {
-                return 1;
-            }
-        }
-        else if (intensity >= f->intensity.trip.pull_in ||
-            frequency >= f->frequency.trip.pull_in ||
-            (_ac_amplitude_enable && amplitude >= f->amplitude.trip.pull_in))
+        if (intensity >= f->intensity.trip.pull_in &&
+            frequency >= f->frequency.trip.pull_in &&
+            (!_ac_amplitude_enable || amplitude >= f->amplitude.trip.pull_in))
         {
             return 1;
         }
@@ -495,6 +475,8 @@ uint16_t function_set_attribute_get(uint8_t functor, uint8_t attribute)
 
 void function_set_attribute_set(uint8_t functor, uint8_t attribute, uint16_t v)
 {
+    log_append(0x03, functor << 8 | attribute);
+
     struct function_set *f = 0;
     struct function_set *t = 0;
     if (0 == functor)
@@ -637,6 +619,8 @@ void function_set_attribute_set(uint8_t functor, uint8_t attribute, uint16_t v)
 
 void function_set_attribute_ts(uint8_t functor, uint8_t attribute, uint16_t v)
 {
+    log_append(0x04, functor << 8 | attribute);
+
     struct function_set *f = 0;
     if (0 == functor)
     {

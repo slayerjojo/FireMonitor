@@ -1,4 +1,5 @@
 #include "menu.h"
+#include "log.h"
 #include "key.h"
 #include "digit.h"
 #include "sensor.h"
@@ -110,6 +111,8 @@ static uint8_t _ao_display_mode_temp = 0;
 
 static void key_event(uint8_t key, uint8_t action)
 {
+    log_append(0x02, key << 8 | action);
+
     SEGGER_RTT_printf(0, "key:%u action:%u\n", key, action);
     _menu.kb_idle = timer_start();
 

@@ -124,16 +124,18 @@ void flash_uid(uint8_t *uid)
     HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
 }
 
-void flash_write(uint32_t addr, const uint8_t *buffer, uint16_t size)
+void flash_write(uint32_t addr, const void *buffer, uint16_t size)
 {
-    uint16_t pos = 0;
     while (size)
     {
         uint16_t length = size;
-        if (length > SPI_FLASH_PageSize - pos % SPI_FLASH_PageSize)
-            length = SPI_FLASH_PageSize - pos % SPI_FLASH_PageSize;
-        SPI_FLASH_PageWrite(addr + pos, buffer + pos, length);
-        pos += length;
+        if ((addr + length) / SPI_FLASH_PageSize > addr / SPI_FLASH_PageSize)
+        {
+            length = (addr / SPI_FLASH_PageSize + 1) * SPI_FLASH_PageSize - addr;
+        }
+        SPI_FLASH_PageWrite(addr, (const uint8_t *)buffer, length);
+        addr += length;
+        buffer += length;
         size -= length;
     }
 }

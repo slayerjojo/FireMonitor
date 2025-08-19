@@ -1,4 +1,5 @@
 #include "operating_mode.h"
+#include "main.h"
 #include "eeprom.h"
 
 static uint8_t _mode = 1;
@@ -10,8 +11,10 @@ void operating_mode_init(void)
     if (0xff == _mode)
     {
         _mode = 1;
+        eeprom_write(EEPROM_SETTINGS_OM_MODE, &_mode, 1);
     }
     _temp = _mode;
+    SEGGER_RTT_printf(0, "operating mode:%u\n", _mode);
 }
 
 uint8_t operating_mode_temp_get(void)

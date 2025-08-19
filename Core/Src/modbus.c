@@ -1008,7 +1008,12 @@ void modbus_init(void)
     if (_address[0] == 0xff)
     {
         _address[0] = _address[1] = 1;
+        eeprom_write(EEPROM_SETTINGS_MODBUS_ADDR, _address, 2);
     }
     memcpy(_temp, _address, sizeof(_address));
-    SEGGER_RTT_printf(0, "modbus initialized. address:%u %u\n", _address[0], _address[1]);
+    SEGGER_RTT_printf(0, "modbus initialized. \n\taddress:%u %u\nit:", _address[0], _address[1]);
+    for (int i = 0; i < 4 * 7; i++)
+    {
+        SEGGER_RTT_printf(0, "\t%c %c\n", _id[i] ? _id[i] : ' ', _last_id[i] ? _last_id[i] : ' ');
+    }
 }
