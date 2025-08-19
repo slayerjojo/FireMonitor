@@ -1,6 +1,9 @@
 Examples
 *.chenjing
 *.swp
+*.bak
+html
+latex
 MDK-ARM/FireMonitor/
 MDK-ARM/DebugConfig/
 MDK-ARM/JLinkLog.txt
