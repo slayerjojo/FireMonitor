@@ -11,6 +11,7 @@
 #define MAX_ADC_SAMPLE 1500
 
 extern ADC_HandleTypeDef hadc1;
+extern ADC_HandleTypeDef hadc2;
 extern TIM_HandleTypeDef htim3;
 
 static uint8_t _sampling = 0;
@@ -30,7 +31,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
     if (htim->Instance == TIM3)
     {
-        _sampling = 1;
+        _sampling = 0x01;
     }
 }
 
@@ -47,28 +48,60 @@ void sensor_update(void)
     {
         _pause = 0;
 
-        HAL_ADC_Start(&hadc1);
-        HAL_StatusTypeDef ret = HAL_ADC_PollForConversion(&hadc1, 50);
-        if (HAL_OK != ret)
+        if (_sampling & 0x01)
         {
-            SEGGER_RTT_printf(0, "HAL_ADC_PollForConversion ret:%u\n", ret);
-            return;
+            HAL_ADC_Start(&hadc1);
+            HAL_StatusTypeDef ret = HAL_ADC_PollForConversion(&hadc1, 50);
+            if (HAL_OK == ret)
+            {
+                if (HAL_IS_BIT_SET(HAL_ADC_GetState(&hadc1), HAL_ADC_STATE_REG_EOC))
+                {
+                    _samples_raw[_sample_tail] = _samples_raw[MAX_SAMPLE + _sample_tail] = HAL_ADC_GetValue(&hadc1);
+                    _sampling &= ~0x01;
+                    if (_samples_raw[_sample_tail] < MAX_ADC_SAMPLE / 10)
+                    {
+                        _sampling |= 0x02;
+                    }
+                }
+            }
+            else
+            {
+                SEGGER_RTT_printf(0, "HAL_ADC_PollForConversion hadc1 ret:%u\n", ret);
+            }
+            HAL_ADC_Stop(&hadc1);
         }
-        if (HAL_IS_BIT_SET(HAL_ADC_GetState(&hadc1), HAL_ADC_STATE_REG_EOC))
+
+        if (_sampling & 0x02)
         {
-            _sampling = 0;
+            HAL_ADC_Start(&hadc2);
+            HAL_StatusTypeDef ret = HAL_ADC_PollForConversion(&hadc2, 50);
+            if (HAL_OK == ret)
+            {
+                if (HAL_IS_BIT_SET(HAL_ADC_GetState(&hadc2), HAL_ADC_STATE_REG_EOC))
+                {
+                    _samples_raw[_sample_tail] = _samples_raw[MAX_SAMPLE + _sample_tail] = (float)(((double)HAL_ADC_GetValue(&hadc2)) / 11);
+                    _sampling &= ~0x02;
+                }
+            }
+            else
+            {
+                SEGGER_RTT_printf(0, "HAL_ADC_PollForConversion hadc2 ret:%u\n", ret);
+            }
+            HAL_ADC_Stop(&hadc2);
+        }
+
+        if (!_sampling)
+        {
             _sample_tail = (_sample_tail + 1) % MAX_SAMPLE;
-            _samples_raw[_sample_tail] = _samples_raw[MAX_SAMPLE + _sample_tail] = HAL_ADC_GetValue(&hadc1);
+            _fft_smoothing = _filter_smoothing = MAX_SAMPLE;
+            if (_sample_total < MAX_SAMPLE)
+                _sample_total++;
             /*
             SEGGER_RTT_printf(0, "%.0f ", _samples_raw[_sample_tail]);
             if (1 == _sample_tail % 10)
                 SEGGER_RTT_printf(0, "\n");
             */
-            _fft_smoothing = _filter_smoothing = MAX_SAMPLE;
-            if (_sample_total < MAX_SAMPLE)
-                _sample_total++;
         }
-        HAL_ADC_Stop(&hadc1);
     }
 }
 
@@ -104,6 +137,38 @@ static float *sample_smoothing(uint16_t smoothing)
     return samples;
 }
 
+static struct {
+    float v;
+    uint8_t p;
+}_intensities[] = {
+    {.p = 0, .v = 0.00000},
+    {.p = 1, .v = 0.0011},
+    {.p = 2, .v = 0.0012},
+    {.p = 3, .v = 0.0013},
+    {.p = 4, .v = 0.0014},
+    {.p = 7, .v = 0.0017},
+    {.p = 8, .v = 0.0019},
+    {.p = 9, .v = 0.0021},
+    {.p = 10, .v = 0.0024},
+    {.p = 14, .v = 0.0034},
+    {.p = 15, .v = 0.0035},
+    {.p = 19, .v = 0.0045},
+    {.p = 20, .v = 0.0048},
+    {.p = 22, .v = 0.0059},
+    {.p = 32, .v = 0.0140},
+    {.p = 39, .v = 0.0242},
+    {.p = 40, .v = 0.0247},
+    {.p = 69, .v = 0.25},
+    {.p = 72, .v = 0.3114},
+    {.p = 73, .v = 0.3371},
+    {.p = 75, .v = 0.4},
+    {.p = 80, .v = 0.57},
+    {.p = 88, .v = 1.01},
+    {.p = 92, .v = 1.5},
+    {.p = 98, .v = 2.23},
+    {.p = 99, .v = 2.48},
+};
+
 uint16_t sensor_intensity_get(uint8_t sensor, uint16_t smoothing)
 {
     if (sensor)
@@ -115,12 +180,28 @@ uint16_t sensor_intensity_get(uint8_t sensor, uint16_t smoothing)
 
     float intensity = 0;
     arm_mean_f32(samples, _sample_total - smoothing, &intensity);
+    
+    intensity = 3.3 * intensity / 4095;
 
-    if (intensity > MAX_ADC_SAMPLE)
+    //SEGGER_RTT_printf(0, "intensity:%f\n", intensity);
+
+    int i = 0;
+    for (i = 0; i < sizeof(_intensities) / sizeof(_intensities[0]); i++)
     {
-        intensity = MAX_ADC_SAMPLE;
+        if (intensity < _intensities[i].v)
+        {
+            break;
+        }
     }
-    return (uint16_t)ceil(100 * intensity / MAX_ADC_SAMPLE);
+    if (i < sizeof(_intensities) / sizeof(_intensities[0]))
+    {
+        intensity = _intensities[i - 1].p + (_intensities[i].p - _intensities[i - 1].p) * (intensity - _intensities[i - 1].v) / (_intensities[i].v - _intensities[i - 1].v);
+    }
+    else
+    {
+        intensity = 100;
+    }
+    return intensity;
 }
 
 uint16_t sensor_amplitude_get(uint8_t sensor, uint16_t smoothing)

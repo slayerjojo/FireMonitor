@@ -16,13 +16,15 @@ void analog_output_init(void)
     eeprom_read(EEPROM_SETTINGS_AO_MODE, &_mode, 1);
     if (0xff == _mode)
     {
-        _mode = AO_MODE_IR;
+        _mode = AO_MODE_UV;
     }
     eeprom_read(EEPROM_SETTINGS_AO_SOURCE, &_source, 1);
     if (0xff == _source)
     {
         _source = AO_SOURCE_QUALITY;
     }
+    _mode = AO_MODE_UV;
+    _source = AO_SOURCE_INTENSITY;
 }
 
 void analog_output_update(void)
@@ -85,11 +87,23 @@ void analog_output_update(void)
 
 void analog_output_set(uint8_t v)
 {
-    _output = 4096 * v / 100;
+    //x * 5 / 18.7 * 100 = (20 - 4) * v / 100 + 4
+    //x = 187 * ((20 - 4) * v / 100 + 4) / 4120
+    //x = 187 * ((20 - 4) * v + 400) / 412000
+    
+    uint32_t value = 0;
+    if (v)
+    {
+        value = 4095 * 187 * (v * (20 - 4) + 400);
+        value /= 500000;
+    }
+    _output = value;
+
+    //SEGGER_RTT_printf(0, "ao:%u\n", _output);
 
     uint8_t data[2] = {0};
-    data[0] = v >> 8;
-    data[1] = v;
+    data[0] = _output >> 8;
+    data[1] = _output;
     HAL_GPIO_WritePin(DAC_CS_GPIO_Port, DAC_CS_Pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(&hspi2, data, 2, 1000);
     timer_delay(10);

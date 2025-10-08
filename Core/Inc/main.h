@@ -62,6 +62,8 @@ void Error_Handler(void);
 #define WATCHDOG_GPIO_Port GPIOC
 #define SENSOR_ADC_Pin GPIO_PIN_1
 #define SENSOR_ADC_GPIO_Port GPIOC
+#define SENSOR_ADC_10x_Pin GPIO_PIN_2
+#define SENSOR_ADC_10x_GPIO_Port GPIOC
 #define FLASH_CS_Pin GPIO_PIN_4
 #define FLASH_CS_GPIO_Port GPIOA
 #define FLASH_SCK_Pin GPIO_PIN_5

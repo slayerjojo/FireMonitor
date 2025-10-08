@@ -8,6 +8,7 @@ enum {
     COMM_PROTOCOL_PROFIBUS,
 };
 
+void usart_baud_init(void);
 void usart_init(void);
 void usart_update(void);
 void usart_send(uint8_t *buffer, uint16_t size);

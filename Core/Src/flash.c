@@ -157,8 +157,10 @@ void flash_sector_erase(uint32_t addr)
     SPI_FLASH_WaitForWriteEnd();
 }
 
-void flash_read(uint32_t addr, uint8_t *buffer, uint16_t size)
+void flash_read(uint32_t addr, void *buffer, uint16_t size)
 {
+    uint8_t *b = (uint8_t *)buffer;
+
     HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_RESET);
     SPI_FLASH_ReadWrite(W25X_ReadData);
 
@@ -168,7 +170,7 @@ void flash_read(uint32_t addr, uint8_t *buffer, uint16_t size)
 
     while (size--)
     {
-        *buffer++ = SPI_FLASH_ReadWrite(Dummy_Byte);
+        *b++ = SPI_FLASH_ReadWrite(Dummy_Byte);
     }
     HAL_GPIO_WritePin(FLASH_CS_GPIO_Port, FLASH_CS_Pin, GPIO_PIN_SET);
 }

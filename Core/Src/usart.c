@@ -50,17 +50,20 @@ void usart_send(uint8_t *buffer, uint16_t size)
     HAL_UART_Transmit_DMA(&huart1, buffer, size);
 }
 
-void usart_init(void)
+void usart_baud_init(void)
 {
-    modbus_init();
-
     eeprom_read(EEPROM_SETTINGS_USART_BAUD, &_baud, 4);
     if (0xffffffff == _baud)
     {
-        _baud = 38400;
+        _baud = 9600;
     }
     _temp = _baud;
     SEGGER_RTT_printf(0, "usart initialized(baud:%u)\n", _baud);
+}
+
+void usart_init(void)
+{
+    modbus_init();
 
     _pos = _append = 0;
     HAL_GPIO_WritePin(MODBUS_PV_GPIO_Port, MODBUS_PV_Pin, GPIO_PIN_SET);
@@ -74,14 +77,12 @@ void usart_update(void)
     if (_pos == _append)
         return;
 
-    /*
     SEGGER_RTT_printf(0, "usart recv:");
     for (int i = 0; i < _buffer[_pos]; i++)
     {
         SEGGER_RTT_printf(0, "%02x ", _buffer[_pos + 1 + i]);
     }
     SEGGER_RTT_printf(0, "\n");
-    */
 
     modbus_recv(&_buffer[_pos + 1], _buffer[_pos]);
     _pos += 1 + _buffer[_pos];
