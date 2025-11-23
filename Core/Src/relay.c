@@ -7,6 +7,8 @@
 #include "tempareture.h"
 #include "function_set.h"
 
+static const uint8_t _log_level = 0;
+
 static uint8_t _flame_relay_overridden = 0;
 static uint8_t _safe_relay_usage = 0;
 static uint8_t _safe_relay_usage_temp = 0;
@@ -25,12 +27,12 @@ static struct relay_status
 
 void relay_init(void)
 {
-    SEGGER_RTT_printf(0, "relay initialized\n");
+    LOG_INF("relay initialized");
 
     eeprom_read(EEPROM_SETTINGS_RELAY_OVERRIDDEN, &_flame_relay_overridden, 1);
     if (0xff == _flame_relay_overridden)
     {
-        SEGGER_RTT_printf(0, "load default overridden\n");
+        LOG_INF("load default overridden");
         _flame_relay_overridden = 0;
         eeprom_write(EEPROM_SETTINGS_RELAY_OVERRIDDEN, &_flame_relay_overridden, 1);
     }
@@ -38,7 +40,7 @@ void relay_init(void)
     eeprom_read(EEPROM_SETTINGS_RELAY_SAFE_USAGE, &_safe_relay_usage, 1);
     if (0xff == _safe_relay_usage)
     {
-        SEGGER_RTT_printf(0, "load default safe relay usage\n");
+        LOG_INF("load default safe relay usage");
         _safe_relay_usage = SAFE_RELAY_USAGE_SAFE;
         eeprom_write(EEPROM_SETTINGS_RELAY_SAFE_USAGE, &_safe_relay_usage, 1);
     }
@@ -47,7 +49,7 @@ void relay_init(void)
     eeprom_read(EEPROM_SETTINGS_RELAY_SAFE_TEMPERATURE_THRESHOLD, &_safe_relay_temperature_threshold, 2);
     if (0xffff == _safe_relay_temperature_threshold)
     {
-        SEGGER_RTT_printf(0, "load default safe relay tempareture threshold\n");
+        LOG_INF("load default safe relay tempareture threshold");
         _safe_relay_temperature_threshold = 800;
         eeprom_write(EEPROM_SETTINGS_RELAY_SAFE_TEMPERATURE_THRESHOLD, &_safe_relay_temperature_threshold, 2);
     }
@@ -55,14 +57,14 @@ void relay_init(void)
     eeprom_read(EEPROM_SETTINGS_RELAY_COUNT, &_relay_status[0].count, 2);
     if (0xffff == _relay_status[0].count)
     {
-        SEGGER_RTT_printf(0, "load default relay status 0 count\n");
+        LOG_INF("load default relay status 0 count");
         _relay_status[0].count = 0;
         eeprom_write(EEPROM_SETTINGS_RELAY_COUNT, &_relay_status[0].count, 2);
     }
     eeprom_read(EEPROM_SETTINGS_RELAY_COUNT + 2, &_relay_status[1].count, 2);
     if (0xffff == _relay_status[1].count)
     {
-        SEGGER_RTT_printf(0, "load default relay status 1 count\n");
+        LOG_INF("load default relay status 1 count");
         _relay_status[1].count = 0;
         eeprom_write(EEPROM_SETTINGS_RELAY_COUNT + 2, &_relay_status[1].count, 2);
     }
@@ -71,7 +73,7 @@ void relay_init(void)
     {
         safe_relay_set(is_error(0xff));
     }
-    SEGGER_RTT_printf(0, "\toverridden:%u safe relay usage:%u tempareture threshold:%u relay status count:%u %u\n", _flame_relay_overridden, _safe_relay_usage, _safe_relay_temperature_threshold, _relay_status[0].count, _relay_status[1].count);
+    LOG_INF("\toverridden:%u safe relay usage:%u tempareture threshold:%u relay status count:%u %u", _flame_relay_overridden, _safe_relay_usage, _safe_relay_temperature_threshold, _relay_status[0].count, _relay_status[1].count);
 }
 
 void relay_update(void)
@@ -127,7 +129,7 @@ void relay_update(void)
     if (SAFE_RELAY_USAGE_QUALITY == _safe_relay_usage)
     {
         struct function_set *f = function_set_get(FUNCTION_SET_CD);
-        safe_relay_set(sensor_quality_get(0, f) >= f->quality_threshold);
+        safe_relay_set(sensor_quality_get(0, FUNCTION_SET_CD) >= f->quality_threshold);
     }
     if (SAFE_RELAY_USAGE_CORE_TEMPERATURE == _safe_relay_usage)
     {
@@ -227,6 +229,7 @@ uint8_t flame_relay_feedback(void)
 
 void flame_relay_set(uint8_t v)
 {
+    return;//chenjing
     if (v)
     {
         //HAL_GPIO_WritePin(RELAY_FLAME_GPIO_Port, RELAY_FLAME_Pin, GPIO_PIN_SET);
@@ -248,7 +251,7 @@ void flame_relay_set(uint8_t v)
     }
     if (v != _relay_status[0].status)
     {
-        SEGGER_RTT_printf(0, "flame_relay_set v:%u\n", v);
+        LOG_DBG("flame_relay_set v:%u", v);
         _relay_status[0].timer = timer_start();
         _relay_status[0].count++;
     }
@@ -282,7 +285,7 @@ void safe_relay_set(uint8_t v)
     }
     if (v != _relay_status[1].status)
     {
-        SEGGER_RTT_printf(0, "safe_relay_set v:%u\n", v);
+        LOG_DBG("safe_relay_set v:%u", v);
         _relay_status[1].timer = timer_start();
         _relay_status[1].count++;
     }

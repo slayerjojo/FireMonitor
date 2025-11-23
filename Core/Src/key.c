@@ -5,6 +5,8 @@
 #include "usart.h"
 #include "function_set.h"
 
+static const uint8_t _log_level = 1;
+
 struct {
     uint8_t cnt;
     GPIO_TypeDef *gpio;
@@ -37,7 +39,7 @@ static KEY_HANDLER _handler = 0;
 
 void key_init(void)
 {
-    SEGGER_RTT_printf(0, "key initialized\n");
+    LOG_INF("key initialized");
     _handler = 0;
 }
 
@@ -69,7 +71,7 @@ void key_update(void)
                 else if (100 == _keys[key].cnt)
                 {
                     _keys[key].cnt++;
-                    SEGGER_RTT_printf(0, "key %u press\n", key);
+                    LOG_DBG("key %u press", key);
                     if (_handler)
                         _handler(key, KEY_EVENT_PRESS_LONG);
                 }
@@ -79,14 +81,14 @@ void key_update(void)
                 _keys[key].cnt = 0;
                 if (_handler)
                 {
-                    SEGGER_RTT_printf(0, "key %u click\n", key);
+                    LOG_DBG("key %u click", key);
                     _handler(key, KEY_EVENT_CLICK);
                 }
             }
             else if (_keys[key].cnt >= 100)
             {
                 _keys[key].cnt = 0;
-                SEGGER_RTT_printf(0, "key %u release\n", key);
+                LOG_DBG("key %u release", key);
                 if (_handler)
                     _handler(key, KEY_EVENT_RELEASE);
             }

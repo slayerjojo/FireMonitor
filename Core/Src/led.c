@@ -2,6 +2,8 @@
 #include "main.h"
 #include "timer.h"
 
+static const uint8_t _log_level = 1;
+
 static struct {
     GPIO_TypeDef *gpio;
     uint16_t pin;
@@ -43,7 +45,7 @@ static uint32_t _timer = 1;
 
 void led_init(void)
 {
-    SEGGER_RTT_printf(0, "led initialized\n");
+    LOG_INF("led initialized");
 
     for (uint8_t led = 0; led < MAX_LED; led++)
     {

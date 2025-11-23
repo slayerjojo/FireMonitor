@@ -6,6 +6,7 @@
 enum {
     FUNCTION_SET_AB = 0,
     FUNCTION_SET_CD,
+    MAX_FUNCTION_SET,
 };
 
 enum {
@@ -58,6 +59,7 @@ struct function_set {
         uint16_t drop_out;
     }delay;
     uint16_t quality_threshold;
+    uint8_t function_set_id;
 };
 
 void function_set_init(void);

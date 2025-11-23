@@ -6,11 +6,14 @@
 #include "timer.h"
 #include "relay.h"
 #include "operating_mode.h"
+#include "analog_output.h"
 #include "sensor.h"
 #include "usart.h"
 #include "modbus.h"
 #include "tempareture.h"
 #include <stdio.h>
+
+static const uint8_t _log_level = 1;
 
 typedef struct {
     enum {
@@ -106,14 +109,13 @@ static const uint32_t _bauds[] = {9600, 19200, 38400, 115200};
 
 static const uint16_t _attributes[] = {0, 1, 3, 5, 6, 7, 9, 11, 12, 13, 15, 17, 21, 20, 19};
 
-static uint8_t _ao_display_mode = 0;
 static uint8_t _ao_display_mode_temp = 0;
 
 static void key_event(uint8_t key, uint8_t action)
 {
     log_append(0x02, key << 8 | action);
 
-    SEGGER_RTT_printf(0, "key:%u action:%u\n", key, action);
+    LOG_DBG("key:%u action:%u", key, action);
     _menu.kb_idle = timer_start();
 
     if (MENU_IDLE_LOOP == _menu.type)
@@ -526,7 +528,7 @@ static void key_event(uint8_t key, uint8_t action)
         }
         if (KEY_RIGHT == key && KEY_EVENT_CLICK == action)
         {
-            _menu.ao.value = safe_relay_usage_temp_get();
+            _menu.ao.value = analog_output_source_temp_get();
             _menu.ao.timer = 0;
             _menu.type = MENU_ANALOG_OUTPUT_DISPLAY_SET;
         }
@@ -550,7 +552,7 @@ static void key_event(uint8_t key, uint8_t action)
         if (KEY_RIGHT == key && KEY_EVENT_CLICK == action)
         {
             _menu.ao.timer = 0;
-            _ao_display_mode_temp = _menu.ao.value;
+            analog_output_source_temp_set(_menu.ao.value);
             _menu.type = MENU_ANALOG_OUTPUT_DISPLAY_TS;
         }
         if (KEY_UP == key && KEY_EVENT_CLICK == action)
@@ -722,7 +724,7 @@ static void key_event(uint8_t key, uint8_t action)
             }
             else if (COMM_PROTOCOL_PROFIBUS == _menu.comm.protocol)
             {
-                SEGGER_RTT_printf(0, "profibus not support");
+                LOG_ERR("profibus not support");
             }
             _menu.comm.timer = 0;
             _menu.type = MENU_COMM_PROTOCOL_ADDR_TS;
@@ -832,7 +834,7 @@ static void key_event(uint8_t key, uint8_t action)
 
 void menu_init(void)
 {
-    SEGGER_RTT_printf(0, "menu initialized\n");
+    LOG_INF("menu initialized");
 
     key_handler_set(key_event);
 }
@@ -874,31 +876,10 @@ void menu_update(void)
         }
         else
         {
-            struct function_set *f = function_set_get(0);
-
             char codes[4] = {0};
             if (0 == _menu.idle.attribute)
             {
-                if (0 == _ao_display_mode)
-                {
-                    sprintf(codes, "%3u", sensor_quality_get(0, f));
-                }
-                else if (1 == _ao_display_mode)
-                {
-                    sprintf(codes, "%3u", sensor_intensity_get(0, f->intensity.filter));
-                }
-                else if (2 == _ao_display_mode)
-                {
-                    sprintf(codes, "%3u", sensor_flicker_frequency_get(0, f->frequency.filter, f->frequency.sensitivity, f->frequency.max));
-                }
-                else if (3 == _ao_display_mode)
-                {
-                    sprintf(codes, "%3u", sensor_amplitude_get(0, f->amplitude.filter));
-                }
-                else if (4 == _ao_display_mode)
-                {
-                    sprintf(codes, "%3u", sensor_quality_get(0, f));
-                }
+                sprintf(codes, "%3u", analog_output_get());
             }
             else if (1 == _menu.idle.attribute)
             {
@@ -910,19 +891,19 @@ void menu_update(void)
             }
             else if (3 == _menu.idle.attribute)
             {
-                sprintf(codes, "%3u", sensor_intensity_get(0, f->intensity.filter));
+                sprintf(codes, "%3u", sensor_intensity_get(0, FUNCTION_SET_AB));
             }
             else if (4 == _menu.idle.attribute)
             {
-                sprintf(codes, "%3u", sensor_flicker_frequency_get(0, f->frequency.filter, f->frequency.sensitivity, f->frequency.max));
+                sprintf(codes, "%3u", sensor_flicker_frequency_get(0, FUNCTION_SET_AB));
             }
             else if (5 == _menu.idle.attribute)
             {
-                sprintf(codes, "%3u", sensor_amplitude_get(0, f->amplitude.filter));
+                sprintf(codes, "%3u", sensor_amplitude_get(0, FUNCTION_SET_AB));
             }
             else if (6 == _menu.idle.attribute)
             {
-                sprintf(codes, "%3u", sensor_quality_get(0, f));
+                sprintf(codes, "%3u", sensor_quality_get(0, FUNCTION_SET_AB));
             }
             digit_set(codes);
         }
@@ -1341,6 +1322,7 @@ void menu_update(void)
             function_set_default_load();
             operating_mode_default_load();
             relay_default_load();
+            analog_output_default_load();
 
             _menu.configure.timer = 0;
             _menu.type = MENU_CONFIGURE_DEFAULT_SET;
@@ -1368,6 +1350,7 @@ void menu_update(void)
             function_set_configure_apply();
             operating_mode_configure_apply();
             relay_configure_apply();
+            analog_output_configure_apply();
 
             _menu.configure.timer = 0;
             _menu.type = MENU_CONFIGURE_RECORD;

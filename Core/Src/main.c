@@ -92,6 +92,7 @@ static void MX_ADC2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+static const uint8_t _log_level = 1;
 extern uint32_t _baud;
 /* USER CODE END 0 */
 
@@ -114,7 +115,7 @@ int main(void)
   /* USER CODE BEGIN Init */
 
   SEGGER_RTT_Init();
-  SEGGER_RTT_printf(0, "initialize...\n");
+  LOG_INF("initialize...");
   
   /* USER CODE END Init */
 
@@ -493,7 +494,7 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 336-1;
+  htim3.Init.Prescaler = 42-1;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim3.Init.Period = 1000-1;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -698,7 +699,7 @@ void Error_Handler(void)
   /* USER CODE BEGIN Error_Handler_Debug */
   /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  SEGGER_RTT_printf(0, "ERROR!!!");
+  LOG_INF("ERROR!!!");
   while (1)
   {
   }
@@ -717,7 +718,7 @@ void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
   /* User can add his own implementation to report the file name and line number,
-     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+     ex: printf("Wrong parameters value: file %s on line %d\r", file, line) */
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */

@@ -8,6 +8,8 @@
 #include "timer.h"
 #include <string.h>
 
+static const uint8_t _log_level = 1;
+
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
 static struct function_set _fsa = {0}, _fsb = {0}, _fsc = {0}, _fsd = {0}, _ta = {0}, _tb = {0}, _tc = {0}, _td = {0}, _default = {
@@ -21,7 +23,7 @@ static struct function_set _fsa = {0}, _fsb = {0}, _fsc = {0}, _fsd = {0}, _ta =
             .value = 20,
             .high = 5,
         },
-        .filter = 0,
+        .filter = 3,
     },
     .frequency = {
         .trip = {
@@ -33,7 +35,7 @@ static struct function_set _fsa = {0}, _fsb = {0}, _fsc = {0}, _fsd = {0}, _ta =
             .value = 15,
             .high = 1,
         },
-        .filter = 2,
+        .filter = 3,
         .max = 125,
         .sensitivity = 10,
     },
@@ -65,6 +67,7 @@ static uint8_t _high_limit_enable = 0;
 static uint8_t _high_limit_enable_temp = 0;
 static uint8_t _ac_amplitude_enable = 0;
 static uint8_t _ac_amplitude_enable_temp = 0;
+static uint16_t _info = 0;
 
 static uint8_t _di1 = 0;
 static uint8_t _di2 = 0;
@@ -73,24 +76,27 @@ static uint32_t _save_timer = 0;
 
 static void function_set_info(struct function_set *f)
 {
-    SEGGER_RTT_printf(0, "intensity:\n");
-    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u) ", f->intensity.trip.pull_in, f->intensity.trip.drop_out, f->intensity.trip.high);
-    SEGGER_RTT_printf(0, "norm(value:%u high:%u) ", f->intensity.normalization.value, f->intensity.normalization.high);
-    SEGGER_RTT_printf(0, "filter:%u\n", f->intensity.filter);
+    LOG_INF("intensity:");
+    LOG_INF("\ttrip(pull:%u drop:%u high:%u) ", f->intensity.trip.pull_in, f->intensity.trip.drop_out, f->intensity.trip.high);
+    LOG_INF("norm(value:%u high:%u) ", f->intensity.normalization.value, f->intensity.normalization.high);
+    LOG_INF("filter:%u", f->intensity.filter);
+    timer_sleep(100);
 
-    SEGGER_RTT_printf(0, "frequency:\n");
-    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u) ", f->frequency.trip.pull_in, f->frequency.trip.drop_out, f->frequency.trip.high);
-    SEGGER_RTT_printf(0, "norm(value:%u high:%u) ", f->frequency.normalization.value, f->frequency.normalization.high);
-    SEGGER_RTT_printf(0, "filter:%u max:%u sensitivity:%u\n", f->frequency.filter, f->frequency.max, f->frequency.sensitivity);
+    LOG_INF("frequency:");
+    LOG_INF("\ttrip(pull:%u drop:%u high:%u) ", f->frequency.trip.pull_in, f->frequency.trip.drop_out, f->frequency.trip.high);
+    LOG_INF("norm(value:%u high:%u) ", f->frequency.normalization.value, f->frequency.normalization.high);
+    LOG_INF("filter:%u max:%u sensitivity:%u", f->frequency.filter, f->frequency.max, f->frequency.sensitivity);
+    timer_sleep(100);
     
-    SEGGER_RTT_printf(0, "amplitude:\n");
-    SEGGER_RTT_printf(0, "\ttrip(pull:%u drop:%u high:%u) ", f->amplitude.trip.pull_in, f->amplitude.trip.drop_out, f->amplitude.trip.high);
-    SEGGER_RTT_printf(0, "norm(value:%u high:%u) ", f->amplitude.normalization.value, f->amplitude.normalization.high);
-    SEGGER_RTT_printf(0, "filter:%u\n", f->amplitude.filter);
+    LOG_INF("amplitude:");
+    LOG_INF("\ttrip(pull:%u drop:%u high:%u) ", f->amplitude.trip.pull_in, f->amplitude.trip.drop_out, f->amplitude.trip.high);
+    LOG_INF("norm(value:%u high:%u) ", f->amplitude.normalization.value, f->amplitude.normalization.high);
+    LOG_INF("filter:%u", f->amplitude.filter);
+    timer_sleep(100);
     
-    SEGGER_RTT_printf(0, "delay(pull:%u drop:%u)\n", f->delay.pull_in, f->delay.drop_out);
+    LOG_INF("delay(pull:%u drop:%u)", f->delay.pull_in, f->delay.drop_out);
     
-    SEGGER_RTT_printf(0, "quality(threshold:%u)\n", f->quality_threshold);
+    LOG_INF("quality(threshold:%u)", f->quality_threshold);
 }
 
 void function_set_init(void)
@@ -107,11 +113,15 @@ void function_set_init(void)
     eeprom_read(EEPROM_SETTINGS_FS_AC_AMPLITUDE_ENABLE, &_ac_amplitude_enable, 1);
     if (_fsa.quality_threshold == 0xffff)
     {
-        SEGGER_RTT_printf(0, "load default function set\n");
+        LOG_INF("load default function set");
         memcpy(&_fsa, &_default, sizeof(_default));
+        _fsa.function_set_id = 0;
         memcpy(&_fsb, &_default, sizeof(_default));
+        _fsb.function_set_id = 0;
         memcpy(&_fsc, &_default, sizeof(_default));
+        _fsc.function_set_id = 1;
         memcpy(&_fsd, &_default, sizeof(_default));
+        _fsd.function_set_id = 1;
         _switch = FUNCTION_SET_SWITCH_OFF;
         _active_ab = 0;
         _active_cd = 0;
@@ -138,19 +148,20 @@ void function_set_init(void)
     _switch_temp = _switch;
     _high_limit_enable_temp = _high_limit_enable;
     _ac_amplitude_enable_temp = _ac_amplitude_enable;
+    _info = 0;
 
-    SEGGER_RTT_printf(0, "active ab:%u/cd:%u\n", _active_ab, _active_cd);
-    SEGGER_RTT_printf(0, "fsa ");
+    LOG_INF("switch:%u", _switch);
+    LOG_INF("high limit:%u", _high_limit_enable);
+    LOG_INF("ac amplitude:%u", _ac_amplitude_enable);
+    LOG_INF("active ab:%u/cd:%u", _active_ab, _active_cd);
+    LOG_WRN("Function Set A:");
     function_set_info(&_fsa);
-    SEGGER_RTT_printf(0, "fsb ");
+    LOG_WRN("Function Set B:");
     function_set_info(&_fsb);
-    SEGGER_RTT_printf(0, "fsc ");
+    LOG_WRN("Function Set C:");
     function_set_info(&_fsc);
-    SEGGER_RTT_printf(0, "fsd ");
+    LOG_WRN("Function Set D:");
     function_set_info(&_fsd);
-    SEGGER_RTT_printf(0, "switch:%u\n", _switch);
-    SEGGER_RTT_printf(0, "high limit:%u\n", _high_limit_enable);
-    SEGGER_RTT_printf(0, "ac amplitude:%u\n", _ac_amplitude_enable);
 }
 
 void function_set_update(void)
@@ -225,9 +236,9 @@ struct function_set *function_set_get(uint8_t fs)
 
 uint8_t function_set_flame_status_get(uint8_t sensor, struct function_set *f, uint8_t prev_status)
 {
-    uint16_t intensity = sensor_intensity_get(sensor, f->intensity.filter);
-    uint16_t frequency = sensor_flicker_frequency_get(sensor, f->frequency.filter, f->frequency.sensitivity, f->frequency.max);
-    uint16_t amplitude = sensor_amplitude_get(sensor, f->amplitude.filter);
+    uint16_t intensity = sensor_intensity_get(sensor, f->function_set_id);
+    uint16_t frequency = sensor_flicker_frequency_get(sensor, f->function_set_id);
+    uint16_t amplitude = sensor_amplitude_get(sensor, f->function_set_id);
 
     if (prev_status)
     {

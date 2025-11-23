@@ -12,6 +12,8 @@
 #include "tempareture.h"
 #include <string.h>
 
+static const uint8_t _log_level = 1;
+
 static uint8_t _temp[2] = {1, 1};
 static uint8_t _address[2] = {1, 1};
 static uint8_t _configure_count = 0;
@@ -268,19 +270,17 @@ static uint16_t modbus_register_reader_combine(struct modbus_register *r, uint16
 
 uint16_t modbus_register_reader_sensor_intensity_and_flicker_frequency(struct modbus_register *r, uint16_t reg)
 {
-    struct function_set *f = function_set_get(r->sensor.secondary);
     uint16_t v = 0;
-    v += sensor_intensity_get(r->sensor.id, f->intensity.filter);
-    v += sensor_flicker_frequency_get(r->sensor.id, f->frequency.filter, f->frequency.sensitivity, f->frequency.max) << 8;
+    v += sensor_intensity_get(r->sensor.id, r->sensor.secondary);
+    v += sensor_flicker_frequency_get(r->sensor.id, r->sensor.secondary) << 8;
     return v;
 }
 
 uint16_t modbus_register_reader_sensor_amplitude_and_quality(struct modbus_register *r, uint16_t reg)
 {
-    struct function_set *f = function_set_get(r->sensor.secondary);
     uint16_t v = 0;
-    v += sensor_amplitude_get(r->sensor.id, f->amplitude.filter);
-    v += sensor_quality_get(r->sensor.id, f) << 8;
+    v += sensor_amplitude_get(r->sensor.id, r->sensor.secondary);
+    v += sensor_quality_get(r->sensor.id, r->sensor.secondary) << 8;
     return v;
 }
 
@@ -293,7 +293,7 @@ uint16_t modbus_register_reader_sensor_spare_and_type(struct modbus_register *r,
 
 uint16_t modbus_register_reader_sensor_channel_1_raw(struct modbus_register *r, uint16_t reg)
 {
-    return sensor_intensity_raw_get(0);
+    return sensor_intensity_get(0, 0);
 }
 
 uint16_t modbus_register_reader_sensor_type(struct modbus_register *r, uint16_t reg)
@@ -328,7 +328,7 @@ uint16_t modbus_register_reader_FPGA_minor(struct modbus_register *r, uint16_t r
 
 uint16_t modbus_register_reader_sensor_intensity_raw_get(struct modbus_register *r, uint16_t reg)
 {
-    return sensor_intensity_raw_get(r->sensor.id);
+    return sensor_intensity_get(r->sensor.id, 0);
 }
 
 uint16_t modbus_register_reader_relay_action_count(struct modbus_register *r, uint16_t reg)
@@ -748,18 +748,13 @@ void modbus_recv(uint8_t *protocol, int size)
 {
     if (_address[0] != protocol[0] && _address[1] != protocol[0])
     {
-        SEGGER_RTT_printf(0, "address %u error\n", protocol[0]);
+        LOG_ERR("address %u error", protocol[0]);
         return;
     }
     uint16_t crc = crc16(protocol, size - 2);
     if ((crc >> 8) != protocol[size - 2] || (crc & 0xff) != protocol[size - 1])
     {
-        SEGGER_RTT_printf(0, "modbus_check failed. crc:%04x data:", crc);
-        for (int i = 0; i < size; i++)
-        {
-            SEGGER_RTT_printf(0, "%02x ", protocol[i]);
-        }
-        SEGGER_RTT_printf(0, "\n");
+        LOG_ERR_HEX(protocol, size, "modbus_check failed. crc:%04x data:", crc);
         return;
     }
     if (0x01 == protocol[1] || 0x02 == protocol[1]) //read coils
@@ -767,7 +762,7 @@ void modbus_recv(uint8_t *protocol, int size)
         uint16_t reg = ((uint16_t)protocol[2] << 8) + protocol[3];
         uint16_t count = ((uint16_t)protocol[4] << 8) + protocol[5];
         
-        SEGGER_RTT_printf(0, "read coils reg:%u count:%u\n", reg, count);
+        LOG_DBG("read coils reg:%u count:%u", reg, count);
 
         _resp[0] = protocol[0];
         _resp[1] = protocol[1];
@@ -783,7 +778,7 @@ void modbus_recv(uint8_t *protocol, int size)
                     if (_registers[i].reader)
                     {
                         uint16_t v = _registers[i].reader(&_registers[i], _registers[i].reg + gap);
-                        SEGGER_RTT_printf(0, "\treg:%5u r:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                        LOG_DBG_RAW("\treg:%5u r:%5x(%u)\n", _registers[i].reg + gap, v, v);
                         if (v)
                         {
                             _resp[3 + pos / 8] |= 1 << (pos % 8);
@@ -791,7 +786,7 @@ void modbus_recv(uint8_t *protocol, int size)
                     }
                     else
                     {
-                        SEGGER_RTT_printf(0, "\treg:%5u missing\n", _registers[i].reg + gap);
+                        LOG_DBG_RAW("\treg:%5u missing\n", _registers[i].reg + gap);
                     }
                 }
             }
@@ -806,7 +801,7 @@ void modbus_recv(uint8_t *protocol, int size)
         uint16_t reg = ((uint16_t)protocol[2] << 8) + protocol[3];
         uint16_t count = ((uint16_t)protocol[4] << 8) + protocol[5];
 
-        SEGGER_RTT_printf(0, "read holding/input registers reg:%u count:%u\n", reg, count);
+        LOG_DBG("read holding/input registers reg:%u count:%u", reg, count);
 
         _resp[0] = protocol[0];
         _resp[1] = protocol[1];
@@ -819,7 +814,7 @@ void modbus_recv(uint8_t *protocol, int size)
                 if (reg <= (_registers[i].reg + gap) && (_registers[i].reg + gap) < (reg + count) && _registers[i].reader)
                 {
                     uint16_t v = _registers[i].reader(&_registers[i], _registers[i].reg + gap);
-                    SEGGER_RTT_printf(0, "\treg:%5u r:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                    LOG_DBG_RAW("\treg:%5u r:%5x(%u)\n", _registers[i].reg + gap, v, v);
                     if (v)
                     {
                         uint8_t pos = _registers[i].reg + gap - reg;
@@ -841,7 +836,7 @@ void modbus_recv(uint8_t *protocol, int size)
         uint16_t v = ((uint16_t)protocol[4] << 8) + protocol[5];
         usart_send(protocol, size);
 
-        SEGGER_RTT_printf(0, "write single coil reg:%u value:%u\n", reg, v);
+        LOG_DBG("write single coil reg:%u value:%u", reg, v);
         
         for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
         {
@@ -851,12 +846,12 @@ void modbus_recv(uint8_t *protocol, int size)
                 {
                     if (_registers[i].writer)
                     {
-                        SEGGER_RTT_printf(0, "\treg:%5u w:%u\n", _registers[i].reg + gap, !!v);
+                        LOG_DBG_RAW("\treg:%5u w:%u\n", _registers[i].reg + gap, !!v);
                         _registers[i].writer(&_registers[i], _registers[i].reg + gap, !!v);
                     }
                     else
                     {
-                        SEGGER_RTT_printf(0, "\treg:%5u missing\n", _registers[i].reg + gap);
+                        LOG_DBG_RAW("\treg:%5u missing\n", _registers[i].reg + gap);
                     }
                 }
             }
@@ -868,7 +863,7 @@ void modbus_recv(uint8_t *protocol, int size)
         uint16_t v = ((uint16_t)protocol[4] << 8) + protocol[5];
         usart_send(protocol, size);
         
-        SEGGER_RTT_printf(0, "write single register:%u value:%u\n", reg, v);
+        LOG_DBG("write single register:%u value:%u", reg, v);
 
         for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
         {
@@ -878,12 +873,12 @@ void modbus_recv(uint8_t *protocol, int size)
                 {
                     if (_registers[i].writer)
                     {
-                        SEGGER_RTT_printf(0, "\treg:%5u w:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                        LOG_DBG_RAW("\treg:%5u w:%5x(%u)\n", _registers[i].reg + gap, v, v);
                         _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
                     }
                     else
                     {
-                        SEGGER_RTT_printf(0, "\treg:%5u missing\n", _registers[i].reg + gap);
+                        LOG_DBG_RAW("\treg:%5u missing\n", _registers[i].reg + gap);
                     }
                 }
             }
@@ -901,13 +896,13 @@ void modbus_recv(uint8_t *protocol, int size)
         _resp[7] = crc;
         usart_send(_resp, 8);
 
-        SEGGER_RTT_printf(0, "write multiple coils start:%u count:%u length:%u\n", start, count, length);
+        LOG_DBG("write multiple coils start:%u count:%u length:%u", start, count, length);
 
         for (int reg = start; reg < start + count; reg++)
         {
             uint16_t v = protocol[7 + (reg - start) / 8] & (1 << ((reg - start) % 8));
         
-            SEGGER_RTT_printf(0, "\treg:%u value:%u\n", reg, v);
+            LOG_DBG_RAW("\treg:%u value:%u", reg, v);
 
             for (int i = 0; i < sizeof(_registers) / sizeof(_registers[0]); i++)
             {
@@ -917,12 +912,12 @@ void modbus_recv(uint8_t *protocol, int size)
                     {
                         if (_registers[i].writer)
                         {
-                            SEGGER_RTT_printf(0, "\treg:%u w:%5x(%u)\n", _registers[i].reg + gap, v, v);
+                            LOG_DBG_RAW("\treg:%u w:%5x(%u)\n", _registers[i].reg + gap, v, v);
                             _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
                         }
                         else
                         {
-                            SEGGER_RTT_printf(0, "\treg:%u missing\n", _registers[i].reg + gap);
+                            LOG_DBG_RAW("\treg:%u missing\n", _registers[i].reg + gap);
                         }
                     }
                 }
@@ -941,7 +936,7 @@ void modbus_recv(uint8_t *protocol, int size)
         _resp[7] = crc;
         usart_send(_resp, 8);
         
-        SEGGER_RTT_printf(0, "write multiple register start:%u count:%u length:%u\n", start, count, length);
+        LOG_DBG("write multiple register start:%u count:%u length:%u", start, count, length);
 
         for (int reg = start; reg < start + count; reg++)
         {
@@ -955,12 +950,12 @@ void modbus_recv(uint8_t *protocol, int size)
                     {
                         if (_registers[i].writer)
                         {
-                            SEGGER_RTT_printf(0, "\treg:%u w:%5x(%u)\n", reg, v, v);
+                            LOG_DBG_RAW("\treg:%u w:%5x(%u)\n", reg, v, v);
                             _registers[i].writer(&_registers[i], _registers[i].reg + gap, v);
                         }
                         else
                         {
-                            SEGGER_RTT_printf(0, "\treg:%u missing\n", reg);
+                            LOG_DBG_RAW("\treg:%u missing\n", reg);
                         }
                     }
                 }
@@ -1011,9 +1006,7 @@ void modbus_init(void)
         eeprom_write(EEPROM_SETTINGS_MODBUS_ADDR, _address, 2);
     }
     memcpy(_temp, _address, sizeof(_address));
-    SEGGER_RTT_printf(0, "modbus initialized. \n\taddress:%u %u\nit:", _address[0], _address[1]);
-    for (int i = 0; i < 4 * 7; i++)
-    {
-        SEGGER_RTT_printf(0, "\t%c %c\n", _id[i] ? _id[i] : ' ', _last_id[i] ? _last_id[i] : ' ');
-    }
+    LOG_INF("modbus(addr:%u %u) initialized.", _address[0], _address[1]);
+    LOG_INF_HEX((uint8_t *)_id, 4 * 7, "id:");
+    LOG_INF_HEX((uint8_t *)_last_id, 4 * 7, "last id:");
 }

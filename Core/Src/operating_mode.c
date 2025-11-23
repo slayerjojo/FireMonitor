@@ -2,6 +2,8 @@
 #include "main.h"
 #include "eeprom.h"
 
+static const uint8_t _log_level = 1;
+
 static uint8_t _mode = 1;
 static uint8_t _temp = 0;
 
@@ -14,7 +16,7 @@ void operating_mode_init(void)
         eeprom_write(EEPROM_SETTINGS_OM_MODE, &_mode, 1);
     }
     _temp = _mode;
-    SEGGER_RTT_printf(0, "operating mode:%u\n", _mode);
+    LOG_INF("operating mode:%u", _mode);
 }
 
 uint8_t operating_mode_temp_get(void)

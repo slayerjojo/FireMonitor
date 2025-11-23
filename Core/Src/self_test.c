@@ -13,6 +13,8 @@
 #include "function_set.h"
 #include <stdio.h>
 
+static const uint8_t _log_level = 1;
+
 static enum 
 {
     STATE_SELFTEST_IDLE = 0,

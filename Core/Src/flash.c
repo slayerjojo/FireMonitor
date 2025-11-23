@@ -1,6 +1,8 @@
 #include "flash.h"
 #include "main.h"
 
+static const uint8_t _log_level = 1;
+
 #define W25X_WriteEnable        0x06
 #define W25X_WriteDisable		0x04
 #define W25X_ReadStatusReg		0x05
@@ -83,9 +85,9 @@ void flash_init(void)
 {
     uint8_t uid[8] = {0};
 
-    SEGGER_RTT_printf(0, "flash device:%x\n", flash_device_id());
+    LOG_INF("flash device:%x", flash_device_id());
     flash_uid(uid);
-    SEGGER_RTT_printf(0, "flash uid:%02x%02x%02x%02x%02x%02x%02x%02x\n", uid[0], uid[1], uid[2], uid[3], uid[4], uid[5], uid[6], uid[7]);
+    LOG_INF("flash uid:%02x%02x%02x%02x%02x%02x%02x%02x", uid[0], uid[1], uid[2], uid[3], uid[4], uid[5], uid[6], uid[7]);
 }
 
 uint16_t flash_device_id(void)

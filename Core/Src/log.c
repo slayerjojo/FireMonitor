@@ -4,9 +4,12 @@
 #include "timer.h"
 #include "main.h"
 
+static const uint8_t _log_level = 1;
+
 static uint8_t _sector_max = 3;
 static uint32_t _offset = 0;
-static uint32_t _offset_show = 0;
+static char _buffer[1024] = {0};
+static const char *_colors[] = {RTT_CTRL_TEXT_BRIGHT_GREEN, RTT_CTRL_TEXT_BRIGHT_WHITE, RTT_CTRL_TEXT_BRIGHT_YELLOW, RTT_CTRL_TEXT_BRIGHT_RED};
 
 void log_init(void)
 {
@@ -38,28 +41,27 @@ void log_init(void)
             eeprom_write(EEPROM_SETTINGS_LOG, &start, 1);
         }
     }
-    SEGGER_RTT_printf(0, "log offset:%u\n", _offset);
+    LOG_INF("log offset:%u", _offset);
+    start = 0;
+    while (start < 10)
+    {
+        uint8_t opcode = log_opcode_read(start);
+        if (opcode == 0xff)
+        {
+            break;
+        }
+        uint32_t timestamp = log_timestamp_read(start);
+        uint16_t param = log_param_read(start);
+
+        LOG_INF("\toffset:-%u op:%u param:%04x timestamp:%u", start, opcode, param, timestamp);
+        timer_sleep(100);
+        start++;
+    }
     log_append(0x00, 0x0000);
-    _offset_show = 0;
 }
 
 void log_update(void)
 {
-    if (_offset_show < 10)
-    {
-        uint8_t opcode = log_opcode_read(_offset_show);
-        if (opcode == 0xff)
-        {
-            _offset_show = 4096 * _sector_max / 8;
-            return;
-        }
-        uint32_t timestamp = log_timestamp_read(_offset_show);
-        uint16_t param = log_param_read(_offset_show);
-
-        SEGGER_RTT_printf(0, "\toffset:-%u op:%u param:%04x timestamp:%u\n", _offset_show, opcode, param, timestamp);
-
-        _offset_show++;
-    }
 }
 
 void log_append(uint8_t opcode, uint16_t param)
@@ -126,4 +128,56 @@ uint16_t log_param_read(uint32_t offset)
     }
     flash_read(offset + 5, &param, 2);
     return param;
+}
+
+void log_print(uint8_t action, uint8_t level, const char *func, uint16_t line, const char *fmt, ...)
+{
+    if (action < level)
+    {
+        return;
+    }
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(_buffer, 1023, fmt, ap);
+    va_end(ap);
+
+    SEGGER_RTT_printf(0, "%s%5u|%s:%u|%s\n"RTT_CTRL_RESET, _colors[action], timer_start(), func, line, _buffer);
+}
+
+void log_raw_print(uint8_t action, uint8_t level, const char *fmt, ...)
+{
+    if (action < level)
+    {
+        return;
+    }
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(_buffer, 1023, fmt, ap);
+    va_end(ap);
+
+    SEGGER_RTT_printf(0, "%s%s"RTT_CTRL_RESET, _colors[action], _buffer);
+}
+
+void log_hex_print(uint8_t action, uint8_t level, const char *func, uint16_t line, uint8_t *data, uint16_t size, const char *fmt, ...)
+{
+    if (action < level)
+    {
+        return;
+    }
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(_buffer, 1024, fmt, ap);
+    va_end(ap);
+
+    SEGGER_RTT_printf(0, "%s%5u|%s:%u|%s", _colors[action], timer_start(), func, line, _buffer);
+    for (int i = 0; i < size; i++)
+    {
+        SEGGER_RTT_printf(0, "%02x ", data[i]);
+    }
+    SEGGER_RTT_printf(0, "|");
+    for (int i = 0; i < size; i++)
+    {
+        SEGGER_RTT_printf(0, "%c ", data[i] ? data[i] : ' ');
+    }
+    SEGGER_RTT_printf(0, RTT_CTRL_RESET"\n");
 }

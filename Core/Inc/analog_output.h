@@ -21,10 +21,15 @@ enum {
 void analog_output_init(void);
 void analog_output_update(void);
 
+uint8_t analog_output_get(void);
 void analog_output_set(uint8_t v);
 uint8_t analog_output_mode_get(void);
 void analog_output_mode_set(uint8_t mode);
+uint8_t analog_output_source_temp_get(void);
+void analog_output_source_temp_set(uint8_t source);
 uint8_t analog_output_source_get(void);
 void analog_output_source_set(uint8_t source);
+void analog_output_default_load(void);
+void analog_output_configure_apply(void);
 
 #endif

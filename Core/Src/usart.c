@@ -5,6 +5,8 @@
 #include "eeprom.h"
 #include "crc16.h"
 
+static const uint8_t _log_level = 1;
+
 #define MAX_UART_BUFFER 256
 
 extern UART_HandleTypeDef huart1;
@@ -58,7 +60,7 @@ void usart_baud_init(void)
         _baud = 9600;
     }
     _temp = _baud;
-    SEGGER_RTT_printf(0, "usart initialized(baud:%u)\n", _baud);
+    LOG_INF("usart initialized(baud:%u)", _baud);
 }
 
 void usart_init(void)
@@ -77,12 +79,7 @@ void usart_update(void)
     if (_pos == _append)
         return;
 
-    SEGGER_RTT_printf(0, "usart recv:");
-    for (int i = 0; i < _buffer[_pos]; i++)
-    {
-        SEGGER_RTT_printf(0, "%02x ", _buffer[_pos + 1 + i]);
-    }
-    SEGGER_RTT_printf(0, "\n");
+    LOG_INF_HEX(&_buffer[_pos + 1], _buffer[_pos], "usart recv:");
 
     modbus_recv(&_buffer[_pos + 1], _buffer[_pos]);
     _pos += 1 + _buffer[_pos];
