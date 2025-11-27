@@ -16,6 +16,10 @@
 #define LOG_WRN_HEX(data, size, fmt, ...) log_hex_print(2, _log_level, __FUNCTION__, __LINE__, data, size, fmt, ##__VA_ARGS__)
 #define LOG_INF_HEX(data, size, fmt, ...) log_hex_print(1, _log_level, __FUNCTION__, __LINE__, data, size, fmt, ##__VA_ARGS__)
 #define LOG_DBG_HEX(data, size, fmt, ...) log_hex_print(0, _log_level, __FUNCTION__, __LINE__, data, size, fmt, ##__VA_ARGS__)
+#define LOG_ERR_SEQ(line, fmt, ...) do{log_raw_print(3, _log_level, fmt, ##__VA_ARGS__);static int line_ch = 0; line_ch++;if (line_ch >= line) {log_raw_print(3, _log_level, "\n");line_ch = 0;}}while(0)
+#define LOG_WRN_SEQ(line, fmt, ...) do{log_raw_print(2, _log_level, fmt, ##__VA_ARGS__);static int line_ch = 0; line_ch++;if (line_ch >= line) {log_raw_print(3, _log_level, "\n");line_ch = 0;}}while(0)
+#define LOG_INF_SEQ(line, fmt, ...) do{log_raw_print(1, _log_level, fmt, ##__VA_ARGS__);static int line_ch = 0; line_ch++;if (line_ch >= line) {log_raw_print(3, _log_level, "\n");line_ch = 0;}}while(0)
+#define LOG_DBG_SEQ(line, fmt, ...) do{log_raw_print(0, _log_level, fmt, ##__VA_ARGS__);static int line_ch = 0; line_ch++;if (line_ch >= line) {log_raw_print(3, _log_level, "\n");line_ch = 0;}}while(0)
 
 void log_init(void);
 void log_update(void);
