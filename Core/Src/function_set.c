@@ -12,7 +12,54 @@ static const uint8_t _log_level = 1;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
 
-static struct function_set _fsa = {0}, _fsb = {0}, _fsc = {0}, _fsd = {0}, _ta = {0}, _tb = {0}, _tc = {0}, _td = {0}, _default = {
+static struct function_set _fsa = {0}, _fsb = {0}, _fsc = {0}, _fsd = {0}, _ta = {0}, _tb = {0}, _tc = {0}, _td = {0}, _default = 
+{
+    .intensity = {
+        .trip = {
+            .pull_in = 11,
+            .drop_out = 8,
+            .high = 100,
+        },
+        .normalization = {
+            .value = 8,
+            .high = 5,
+        },
+        .filter = 3,
+    },
+    .frequency = {
+        .trip = {
+            .pull_in = 9,
+            .drop_out = 6,
+            .high = 125,
+        },
+        .normalization = {
+            .value = 8,
+            .high = 1,
+        },
+        .filter = 3,
+        .max = 125,
+        .sensitivity = 10,
+    },
+    .amplitude = {
+        .trip = {
+            .pull_in = 0,
+            .drop_out = 0,
+            .high = 100,
+        },
+        .normalization = {
+            .value = 20,
+            .high = 1,
+        },
+        .filter = 2,
+    },
+    .delay = {
+        .pull_in = 20,
+        .drop_out = 20,
+    },
+    .quality_threshold = 0,
+};
+/*
+{
     .intensity = {
         .trip = {
             .pull_in = 30,
@@ -57,6 +104,7 @@ static struct function_set _fsa = {0}, _fsb = {0}, _fsc = {0}, _fsd = {0}, _ta =
     },
     .quality_threshold = 0,
 };
+*/
 
 static uint8_t _active_ab = 0;
 static uint8_t _active_cd = 0;
@@ -242,13 +290,13 @@ uint8_t function_set_flame_status_get(uint8_t sensor, struct function_set *f, ui
 
     if (prev_status)
     {
-        if ((intensity < f->intensity.trip.drop_out &&
-            frequency < f->frequency.trip.drop_out &&
-            (!_ac_amplitude_enable || amplitude < f->amplitude.trip.drop_out)) || 
+        if (intensity < f->intensity.trip.drop_out ||
+            frequency < f->frequency.trip.drop_out ||
+            (is_function_set_enable_ac_amplitude() && amplitude < f->amplitude.trip.drop_out) || 
             (_high_limit_enable && (
-                intensity >= f->intensity.trip.high &&
-                frequency >= f->frequency.trip.high &&
-                (!_ac_amplitude_enable || amplitude >= f->amplitude.trip.high))))
+                intensity >= f->intensity.trip.high ||
+                frequency >= f->frequency.trip.high ||
+                (is_function_set_enable_ac_amplitude() && amplitude >= f->amplitude.trip.high))))
         {
             return 0;
         }
@@ -257,7 +305,7 @@ uint8_t function_set_flame_status_get(uint8_t sensor, struct function_set *f, ui
     {
         if (intensity >= f->intensity.trip.pull_in &&
             frequency >= f->frequency.trip.pull_in &&
-            (!_ac_amplitude_enable || amplitude >= f->amplitude.trip.pull_in))
+            (!is_function_set_enable_ac_amplitude() || amplitude >= f->amplitude.trip.pull_in))
         {
             return 1;
         }

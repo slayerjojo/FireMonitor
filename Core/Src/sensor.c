@@ -6,7 +6,7 @@
 #include "usart.h"
 #include <stdio.h>
 
-static const uint8_t _log_level = 0;
+static const uint8_t _log_level = 1;
 
 #define CUTOFF_FREQ_HIGH 5ul
 #define SAMPLE_FREQ 2000ul
@@ -147,6 +147,7 @@ void sensor_update(void)
                 {
                     uint8_t smoothing = f->amplitude.filter;
                     _sensors[0].function_set[fs].amplitude = ((255 - _alpha_lp[smoothing]) * (_sensors[0].function_set[fs].periods[pos].max - _sensors[0].function_set[fs].periods[pos].min) + _alpha_lp[smoothing] * _sensors[0].function_set[fs].amplitude) / 255;
+                    //LOG_DBG_SEQ(20, "%.2f ", _sensors[0].function_set[fs].periods[pos].max - _sensors[0].function_set[fs].periods[pos].min);
 
                     _sensors[0].function_set[fs].periods[pos].t = _sensors[0].function_set[fs].cross;
 
@@ -172,7 +173,7 @@ void sensor_update(void)
                     {
                         freq = SAMPLE_FREQ * count / t;
                     }
-                    uint8_t smoothing = f->frequency.filter;
+                    smoothing = f->frequency.filter;
                     _sensors[0].function_set[fs].freq = ((255 - _alpha_lp[smoothing]) * freq + _alpha_lp[smoothing] * _sensors[0].function_set[fs].freq) / 255;
                    
                     //LOG_DBG_SEQ(20, "%.2f ", _sensors[0].function_set[fs].freq);
@@ -221,15 +222,24 @@ uint16_t sensor_quality_get(uint8_t sensor, uint8_t fs_id)
     uint16_t amplitude = sensor_amplitude_get(sensor, fs_id);
 
     struct function_set *f = function_set_get(fs_id);
-    int quality = 100;
-    quality *= MAX(intensity - f->intensity.trip.drop_out, 0);
-    quality *= MAX(frequency - f->frequency.trip.drop_out, 0);
-    quality *= MAX(amplitude - f->amplitude.trip.drop_out, 0);
-    quality /= MAX(f->intensity.normalization.value, f->intensity.normalization.high);
-    quality /= MAX(f->frequency.normalization.value, f->frequency.normalization.high);
-    quality /= MAX(f->amplitude.normalization.value, f->amplitude.normalization.high);
+    float quality = 100;
+    float intensity_norm = 100;
+    float frequency_norm = 0;
+    float amplitude_norm = 0;
+    float normalization = MAX(f->intensity.normalization.value, f->intensity.normalization.high) + MAX(f->frequency.normalization.value, f->frequency.normalization.high) + intensity_norm + frequency_norm + amplitude_norm;
+    if (is_function_set_enable_ac_amplitude())
+    {
+        normalization += MAX(f->amplitude.normalization.value, f->amplitude.normalization.high);
+        quality *= pow(MAX(amplitude - f->amplitude.trip.drop_out, 0) / 100.0, (MAX(f->amplitude.normalization.value, f->amplitude.normalization.high) + amplitude_norm) / normalization);
+    }
+    quality *= pow(MAX(intensity - f->intensity.trip.drop_out, 0) / 100.0, (MAX(f->intensity.normalization.value, f->intensity.normalization.high) + intensity_norm) / normalization);
+    quality *= pow(MAX(frequency - f->frequency.trip.drop_out, 0) / 100.0, (MAX(f->frequency.normalization.value, f->frequency.normalization.high) + frequency_norm) / normalization);
 
-    //LOG_DBG("intensity:%u frequency:%u amplitude:%u quality:%u", intensity, frequency, amplitude, quality);
+    LOG_DBG("intensity:%u(drop out:%u normalization:%u high:%u) frequency:%u(drop out:%u normalization:%u high:%u) amplitude:%u(drop out:%u enable:%u) quality:%f", 
+            intensity, f->intensity.trip.drop_out, f->intensity.normalization.value, f->intensity.normalization.high,
+            frequency, f->frequency.trip.drop_out, f->frequency.normalization.value, f->frequency.normalization.high,
+            amplitude, f->amplitude.trip.drop_out, is_function_set_enable_ac_amplitude(), 
+            quality);
     return quality;
 }
 
