@@ -602,7 +602,7 @@ static void key_event(uint8_t key, uint8_t action)
             _menu.configure.timer = 0;
             _menu.type = MENU_CONFIGURE_DEFAULT;
         }
-        if (KEY_UP == key && KEY_EVENT_CLICK == action)
+        if (KEY_UP == key)
         {
             if (KEY_EVENT_PRESS == action)
             {
@@ -613,7 +613,7 @@ static void key_event(uint8_t key, uint8_t action)
                 _menu.configure.value &= ~1;
             }
         }
-        if (KEY_DOWN == key && KEY_EVENT_CLICK == action)
+        if (KEY_DOWN == key)
         {
             if (KEY_EVENT_PRESS == action)
             {
@@ -624,11 +624,7 @@ static void key_event(uint8_t key, uint8_t action)
                 _menu.configure.value &= ~2;
             }
         }
-        if (_menu.configure.value & 0x03)
-        {
-            _menu.configure.value |= 0x04;
-        }
-        if (_menu.configure.value & 0x04 && !(~(_menu.configure.value & 0x03)))
+        if ((_menu.configure.value & 0x03) == 0x03)
         {
             _menu.configure.value = 0;
             _menu.configure.timer = 0;
@@ -1306,7 +1302,7 @@ void menu_update(void)
         {
             _menu.configure.timer = timer_start();
 
-            digit_set("...");
+            digit_set(" . . .");
         }
     }
     else if (MENU_CONFIGURE_STORAGE == _menu.type)

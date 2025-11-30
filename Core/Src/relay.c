@@ -29,6 +29,11 @@ void relay_init(void)
 {
     LOG_INF("relay initialized");
 
+    led_set(LED_1_RED, 0xffff, 0xffff);
+    led_set(LED_1_GREEN, 0, 1);
+    led_set(LED_2_RED, 0xffff, 0xffff);
+    led_set(LED_2_GREEN, 0, 1);
+
     eeprom_read(EEPROM_SETTINGS_RELAY_OVERRIDDEN, &_flame_relay_overridden, 1);
     if (0xff == _flame_relay_overridden)
     {
@@ -242,20 +247,20 @@ void flame_relay_set(uint8_t v)
         LOG_DBG("flame_relay_set v:%u", v);
         if (v)
         {
-            led_set(LED_2_RED, 0, 1);
+            led_set(LED_1_RED, 0, 1);
             if (_flame_relay_overridden)
             {
-                led_set(LED_2_GREEN, 0xaaaa, 0xffff);
+                led_set(LED_1_GREEN, 0xaaaa, 0xffff);
             }
             else
             {
-                led_set(LED_2_GREEN, 0xffff, 0xffff);
+                led_set(LED_1_GREEN, 0xffff, 0xffff);
             }
         }
         else
         {
-            led_set(LED_2_RED, 0xffff, 0xffff);
-            led_set(LED_2_GREEN, 0, 1);
+            led_set(LED_1_RED, 0xffff, 0xffff);
+            led_set(LED_1_GREEN, 0, 1);
         }
         _relay_status[0].timer = timer_start();
         _relay_status[0].count++;
@@ -279,14 +284,14 @@ void safe_relay_set(uint8_t v)
     if (v)
     {
         HAL_GPIO_WritePin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin, GPIO_PIN_SET);
-        led_set(LED_1_RED, 0xffff, 0xffff);
-        led_set(LED_1_GREEN, 0, 1);
+        led_set(LED_2_RED, 0xffff, 0xffff);
+        led_set(LED_2_GREEN, 0, 1);
     }
     else
     {
         HAL_GPIO_WritePin(RELAY_SAFE_GPIO_Port, RELAY_SAFE_Pin, GPIO_PIN_RESET);
-        led_set(LED_1_RED, 0, 1);
-        led_set(LED_1_GREEN, 0xffff, 0xffff);
+        led_set(LED_2_RED, 0, 1);
+        led_set(LED_2_GREEN, 0xffff, 0xffff);
     }
     if (v != _relay_status[1].status)
     {
