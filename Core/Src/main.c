@@ -123,7 +123,6 @@ int main(void)
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-  usart_baud_init();
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
@@ -138,7 +137,8 @@ int main(void)
   MX_TIM3_Init();
   MX_ADC2_Init();
   /* USER CODE BEGIN 2 */
-  
+  usart_baud_init();
+  MX_USART1_UART_Init();
   flash_init();
   log_init();
   digit_init();
@@ -173,6 +173,7 @@ int main(void)
       menu_update();
       usart_update();
       self_test_update();
+      eeprom_update();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

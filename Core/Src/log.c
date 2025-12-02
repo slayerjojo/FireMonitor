@@ -173,11 +173,15 @@ void log_hex_print(uint8_t action, uint8_t level, const char *func, uint16_t lin
     for (int i = 0; i < size; i++)
     {
         SEGGER_RTT_printf(0, "%02x ", data[i]);
+        if (i % 20 == 19)
+        {
+            SEGGER_RTT_printf(0, "\n\t");
+        }
     }
     SEGGER_RTT_printf(0, "|");
     for (int i = 0; i < size; i++)
     {
-        SEGGER_RTT_printf(0, "%c ", data[i] ? data[i] : ' ');
+        SEGGER_RTT_printf(0, "%c", data[i] ? data[i] : ' ');
     }
     SEGGER_RTT_printf(0, RTT_CTRL_RESET"\n");
 }

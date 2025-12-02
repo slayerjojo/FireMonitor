@@ -12,7 +12,7 @@
 #include "tempareture.h"
 #include <string.h>
 
-static const uint8_t _log_level = 1;
+static const uint8_t _log_level = 0;
 
 static uint8_t _temp[2] = {1, 1};
 static uint8_t _address[2] = {1, 1};

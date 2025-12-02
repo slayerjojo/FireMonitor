@@ -29,5 +29,7 @@
 
 void eeprom_write(uint16_t addr, const void *data, uint16_t size);
 void eeprom_read(uint16_t addr, void *data, uint16_t size);
+void eeprom_save(uint16_t addr, const void *data, uint16_t size);
+void eeprom_update(void);
 
 #endif

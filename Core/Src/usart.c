@@ -7,7 +7,7 @@
 
 static const uint8_t _log_level = 1;
 
-#define MAX_UART_BUFFER 256
+#define MAX_UART_BUFFER 1024
 
 extern UART_HandleTypeDef huart1;
 
@@ -21,13 +21,13 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)//call 
 {
     if (huart == &huart1)
     {
-        _buffer[_append] = size;
-        _append += 1 + size;
+        memcpy(&_buffer[_append], &size, sizeof(size));
+        _append += 2 + size;
         if (_append >= MAX_UART_BUFFER)
         {
             _append = 0;
         }
-        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER * 2 - _append - 1);
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 2, MAX_UART_BUFFER * 2 - _append - 2);
     }
 }
 
@@ -35,7 +35,9 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 {
     if (huart == &huart1)
     {
-        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER * 2 - _append - 1);
+        uint32_t err = HAL_UART_GetError(huart);
+        LOG_ERR("error:%u", err);
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 2, MAX_UART_BUFFER * 2 - _append - 2);
     }
 }
 
@@ -71,7 +73,7 @@ void usart_init(void)
     HAL_GPIO_WritePin(MODBUS_PV_GPIO_Port, MODBUS_PV_Pin, GPIO_PIN_SET);
     HAL_GPIO_WritePin(MODBUS_DE_GPIO_Port, MODBUS_DE_Pin, GPIO_PIN_RESET);
     HAL_GPIO_WritePin(MODBUS_RTS_GPIO_Port, MODBUS_RTS_Pin, GPIO_PIN_RESET);
-    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 1, MAX_UART_BUFFER * 2 - _append - 1);
+    HAL_UARTEx_ReceiveToIdle_DMA(&huart1, _buffer + _append + 2, MAX_UART_BUFFER * 2 - _append - 2);
 }
 
 void usart_update(void)
@@ -79,10 +81,12 @@ void usart_update(void)
     if (_pos == _append)
         return;
 
-    LOG_INF_HEX(&_buffer[_pos + 1], _buffer[_pos], "usart recv:");
+    uint16_t size = 0;
+    memcpy(&size, &_buffer[_pos], sizeof(size));
+    LOG_INF_HEX(&_buffer[_pos + 2], size, "usart recv(pos:%u append:%u len:%u):", _pos, _append, size);
 
-    modbus_recv(&_buffer[_pos + 1], _buffer[_pos]);
-    _pos += 1 + _buffer[_pos];
+    modbus_recv(&_buffer[_pos + 2], size);
+    _pos += 2 + size;
     if (_pos > MAX_UART_BUFFER)
         _pos = 0;
 }
